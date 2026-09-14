@@ -384,8 +384,19 @@ impl PaneContent for TerminalPane {
             // Only immediately clear conversations and delete blocks if the session is being
             // permanently closed.
             BlocklistAIHistoryModel::handle(ctx).update(ctx, |history_model, ctx| {
-                history_model
-                    .clear_conversations_for_terminal_surface(self.terminal_view(ctx).id(), ctx);
+                let terminal_view_id = self.terminal_view(ctx).id();
+                // An undo-retained controller may still select a conversation transferred elsewhere.
+                // An empty clear event would exit that stale selection and cancel the new owner.
+                if history_model
+                    .all_live_conversations_for_terminal_surface(terminal_view_id)
+                    .next()
+                    .is_some()
+                    || history_model
+                        .active_conversation_id(terminal_view_id)
+                        .is_some()
+                {
+                    history_model.clear_conversations_for_terminal_surface(terminal_view_id, ctx);
+                }
             });
             self.delete_blocks(ctx);
         }
