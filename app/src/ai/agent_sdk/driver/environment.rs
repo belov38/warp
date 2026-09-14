@@ -12,6 +12,7 @@ use cloud_object_models::CodeForge;
 use futures::channel::oneshot;
 use futures::future::join_all;
 use repo_metadata::repositories::{DetectedRepositories, RepoDetectionSource};
+use uuid::Uuid;
 use warp_cli::agent::{RepositoryForge, RepositoryHeadRef, RepositoryPreparationOverride};
 use warp_completer::completer::{CommandExitStatus, CommandOutput};
 use warp_core::command::ExitCode;
@@ -782,11 +783,15 @@ async fn remove_repository_origins_from_repos(
     }
 }
 
-fn build_parallel_clone_command(repos: &[RepositoryCloneRequest], shell_type: ShellType) -> String {
+fn build_parallel_clone_command(
+    repos: &[RepositoryCloneRequest],
+    shell_type: ShellType,
+    failed_repos_path: &str,
+) -> String {
+    let escaped_failed_repos_path = shell_escape_single_quotes(failed_repos_path, ShellType::Bash);
     let mut script = String::from(
         r#"set +e
 failed=0
-pids=""
 tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/warp-clone-logs.XXXXXX")"
 cleanup_clone_logs() {
   rm -rf "$tmp_dir"
@@ -826,6 +831,7 @@ clone_repo() {
 "#,
     );
 
+    let mut wait_checks = String::new();
     let mut log_outputs = String::new();
     for (index, request) in repos.iter().enumerate() {
         let repo_name = format!("{}/{}", request.remote.owner, request.remote.repo);
@@ -844,11 +850,22 @@ clone_repo() {
             Some(RepositoryHeadRef::Branch(_)) | None => "0",
         };
         let log_var = format!("log_file_{index}");
+        let pid_var = format!("pid_{index}");
         script.push_str(&format!(
             "{log_var}=\"$tmp_dir/repo-{index}.log\"\n\
-             clone_repo '{escaped_repo_name}' '{escaped_repo_url}' '{escaped_target}' '{escaped_checkout_ref}' '{is_commit_sha}' >\"${log_var}\" 2>&1 &\n"
+             clone_repo '{escaped_repo_name}' '{escaped_repo_url}' '{escaped_target}' '{escaped_checkout_ref}' '{is_commit_sha}' >\"${log_var}\" 2>&1 &\n\
+             {pid_var}=\"$!\"\n"
         ));
-        script.push_str("pids=\"$pids $!\"\n");
+        // Waits are unrolled per repo (rather than looping over a dynamic pid
+        // list) so a failure can be attributed to the specific repo whose
+        // background job it was, instead of only recording an aggregate
+        // pass/fail bit for the whole batch.
+        wait_checks.push_str(&format!(
+            "if ! wait \"${pid_var}\"; then\n\
+             \tfailed=1\n\
+             \tprintf '%s\\n' '{escaped_repo_name}' >> '{escaped_failed_repos_path}'\n\
+             fi\n"
+        ));
         log_outputs.push_str(&format!(
             "printf '%s\\n' '===== {escaped_repo_name} ====='\n\
              if [ -s \"${log_var}\" ]; then\n\
@@ -859,14 +876,7 @@ clone_repo() {
         ));
     }
 
-    script.push_str(
-        r#"for pid in $pids; do
-  if ! wait "$pid"; then
-    failed=1
-  fi
-done
-"#,
-    );
+    script.push_str(&wait_checks);
     script.push_str(&log_outputs);
     script.push_str(
         r#"
@@ -921,11 +931,19 @@ async fn clone_checkout_requests(
                 full: ("Cloning repositories via terminal: {}", repo_names.join(", "))
             );
 
-            let command = build_parallel_clone_command(repos, shell_type);
+            let failed_repos_path = format!("/tmp/.warp-clone-failed-{}", Uuid::new_v4());
+            let command = build_parallel_clone_command(repos, shell_type, &failed_repos_path);
             let exit_code = execute_command(command, spawner).await?;
             if exit_code != 0.into() {
+                // Best-effort: report only the repos the script actually
+                // recorded as failed. Fall back to the whole batch if the
+                // marker file couldn't be read, e.g. the script errored
+                // before reaching the wait loop.
+                let failed_repo_names = read_failed_repo_names(&failed_repos_path, spawner)
+                    .await
+                    .unwrap_or(repo_names);
                 return Err(PrepareEnvironmentError::CloneRepo {
-                    repo_name: repo_names.join(", "),
+                    repo_name: failed_repo_names.join(", "),
                 });
             }
 
@@ -936,6 +954,29 @@ async fn clone_checkout_requests(
         }
     }
     Ok(capture_environment_snapshot(repos, working_dir, spawner).await)
+}
+
+/// Reads back the repo names the parallel clone script recorded as failed at
+/// `failed_repos_path`, then removes the marker file. Returns `None` when
+/// nothing could be read, so the caller can fall back to reporting the whole
+/// batch instead of an empty list.
+async fn read_failed_repo_names(
+    failed_repos_path: &str,
+    spawner: &ModelSpawner<TerminalDriver>,
+) -> Option<Vec<String>> {
+    let shell_type = active_shell_type(spawner).await;
+    let escaped_path = shell_escape_single_quotes(failed_repos_path, shell_type);
+    let command = format!("cat '{escaped_path}' 2>/dev/null; rm -f '{escaped_path}'");
+    let output = execute_silent_command(command, spawner).await.ok()?;
+    let names = output
+        .to_string()
+        .ok()?
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    (!names.is_empty()).then_some(names)
 }
 
 /// Clone a source repository to its requested checkout directory if it does not already exist.
