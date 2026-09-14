@@ -1772,6 +1772,11 @@ impl BlocklistAIController {
             ctx,
         );
 
+        // A steered input is the fired head of the queue, so its presence is exactly what
+        // `send_request_input` needs to know to skip resetting the user's live draft context
+        // below -- neither `finished_results` nor a piggybacked orchestration event ever
+        // produces a `UserQuery`, so the steered input is the only possible source of one here.
+        let is_queued_prompt = steered_input.is_some();
         if let (Some(steered_input), Some(root_task_id)) = (steered_input, root_task_id) {
             request_input
                 .input_messages
@@ -1812,7 +1817,7 @@ impl BlocklistAIController {
             request_input,
             None,
             RecoveryBudget::fresh(),
-            /*is_queued_prompt*/ false,
+            is_queued_prompt,
             ctx,
         );
 
@@ -2080,6 +2085,10 @@ impl BlocklistAIController {
         let steered_input = root_task_id.as_ref().and_then(|root_task_id| {
             self.steer_head_prompt_for_request(conversation_id, root_task_id, ctx)
         });
+        // See the identical comment in `send_follow_up_for_conversation`: a steered input is
+        // the only possible source of a `UserQuery` here, so its presence is exactly the signal
+        // `send_request_input` needs to skip resetting the user's live draft context.
+        let is_queued_prompt = steered_input.is_some();
 
         let scope = ResolvedTeamScope::from_scope(&self.team_context(ctx));
         let mut request_input = RequestInput::for_task(
@@ -2104,7 +2113,7 @@ impl BlocklistAIController {
                 request_input,
                 None,
                 RecoveryBudget::fresh(),
-                /*is_queued_prompt*/ false,
+                is_queued_prompt,
                 ctx,
             )
             .is_err()

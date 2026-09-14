@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use warp_core::safe_warn;
 use warp_errors::report_error;
 
 /// Max file attachment size is 10 MB.
@@ -137,9 +138,15 @@ pub(crate) async fn download_task_file_attachments(
                 file_path: dest.to_string_lossy().into_owned(),
             }),
             Err(e) => {
+                // `safe_name` comes from a user-supplied attachment filename; keep it out of
+                // the Sentry-bound report and surface it only in local dogfood logs.
+                safe_warn!(
+                    safe: ("Failed to download attachment"),
+                    full: ("Failed to download attachment {safe_name}")
+                );
                 report_error!(
                     e.context("Failed to download attachment"),
-                    extra: { "file_name" => %safe_name }
+                    extra: { "attachment_id" => %attachment_id }
                 );
             }
         }
