@@ -10,7 +10,12 @@ use crate::ai::blocklist::BlocklistAIHistoryModel;
 use crate::features::FeatureFlag;
 use crate::integration_testing::terminal::wait_until_bootstrapped_single_pane_for_tab;
 use crate::integration_testing::view_getters::{single_terminal_view_for_tab, workspace_view};
-use crate::integration_testing::workspace::{assert_tab_count, trigger_undo_close};
+use crate::integration_testing::workspace::{
+    assert_focused_tab_index, assert_tab_count, trigger_undo_close,
+};
+use crate::terminal::model::blocks::BlockHeightItem;
+use crate::terminal::model::rich_content::RichContentType;
+use crate::terminal::view::TerminalAction;
 use crate::terminal::view::load_ai_conversation::{
     RestoreConversationEntryBehavior, RestoredAIConversation,
 };
@@ -52,20 +57,28 @@ fn restored_conversation(task_id: &str, output: &str) -> AIConversation {
 }
 
 fn assert_visible_conversation(tab_index: usize, conversation_id: AIConversationId) -> TestStep {
-    TestStep::new("Verify the visible conversation and its transcript").add_named_assertion(
-        "The visible terminal contains the expected conversation's AI block",
-        move |app, window_id| {
-            let terminal = single_terminal_view_for_tab(app, window_id, tab_index);
-            let state = terminal.read(app, |view, ctx| {
-                (
-                    view.active_conversation_id(ctx),
-                    view.last_ai_block()
-                        .map(|block| block.as_ref(ctx).conversation_id()),
-                )
-            });
-            async_assert_eq!(state, (Some(conversation_id), Some(conversation_id)))
-        },
-    )
+    TestStep::new("Verify the visible conversation and its transcript")
+        .add_named_assertion(
+            "The visible terminal contains the expected conversation's AI block",
+            move |app, window_id| {
+                let terminal = single_terminal_view_for_tab(app, window_id, tab_index);
+                let state = terminal.read(app, |view, ctx| {
+                    let has_ai_block = view.model.lock().block_list()
+                    .has_visible_block_height_item_where(|item| matches!(
+                        item,
+                        BlockHeightItem::RichContent(content)
+                            if content.content_type == Some(RichContentType::AIBlock)
+                                && content.agent_view_conversation_id == Some(conversation_id)
+                    ));
+                    (view.active_conversation_id(ctx), has_ai_block)
+                });
+                async_assert_eq!(state, (Some(conversation_id), true))
+            },
+        )
+        .add_named_assertion(
+            "The expected tab is focused",
+            assert_focused_tab_index(tab_index),
+        )
 }
 
 pub fn child_pill_after_reopening_closed_parent_tab() -> Vec<TestStep> {
@@ -148,6 +161,28 @@ pub fn child_pill_after_reopening_closed_parent_tab() -> Vec<TestStep> {
         ),
         TestStep::new("Navigate to the child from the undo-restored tab")
             .with_click_on_saved_position(format!("orchestration-pill-body-{child_id}")),
+        assert_visible_conversation(2, child_id),
+        TestStep::new("Reveal the child through the pane-group fallback").with_action(
+            move |app, window_id, _| {
+                let origin = single_terminal_view_for_tab(app, window_id, 0);
+                workspace_view(app, window_id).update(app, |workspace, ctx| {
+                    workspace.handle_action(
+                        &WorkspaceAction::FocusTerminalViewInWorkspace {
+                            terminal_view_id: origin.id(),
+                        },
+                        ctx,
+                    );
+                });
+                origin.update(app, |view, ctx| {
+                    view.handle_action(
+                        &TerminalAction::RevealChildAgent {
+                            conversation_id: child_id,
+                        },
+                        ctx,
+                    );
+                });
+            },
+        ),
         assert_visible_conversation(2, child_id),
     ]
 }

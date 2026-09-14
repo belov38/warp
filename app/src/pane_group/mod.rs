@@ -3244,7 +3244,7 @@ impl PaneGroup {
         pane_group
     }
 
-    /// Returns the conversation's owner in this group or another attached pane.
+    /// Returns the conversation's owner, excluding panes detached for undo-close.
     fn terminal_view_id_for_owned_conversation(
         &self,
         conversation_id: AIConversationId,
@@ -4735,6 +4735,8 @@ impl PaneGroup {
         let tracked_child_pane = self.child_agent_panes.remove(&conversation_id);
         self.failed_viewer_child_sessions.remove(&conversation_id);
         self.pending_child_hydrations
+            .retain(|_, child_id| *child_id != conversation_id);
+        self.pending_remote_child_hydrations
             .retain(|_, child_id| *child_id != conversation_id);
         let split_off_child_pane = self.child_agent_origin.as_ref().and_then(|origin| {
             (origin.conversation_id == conversation_id)
@@ -7880,21 +7882,7 @@ impl PaneGroup {
             .collect_vec();
 
         for conversation_id in transferred_children {
-            let Some(pane) = self.take_child_agent_pane_for_split_off(conversation_id, ctx) else {
-                continue;
-            };
-            let pane_id = pane.as_pane().id();
-            self.pending_child_hydrations
-                .retain(|_, child_id| *child_id != conversation_id);
-            self.pending_remote_child_hydrations
-                .retain(|_, child_id| *child_id != conversation_id);
-            self.failed_viewer_child_sessions.remove(&conversation_id);
-            self.transitively_shared_child_panes.remove(&pane_id);
-            self.transitively_shared_child_panes.retain(|_, children| {
-                children.remove(&pane_id);
-                !children.is_empty()
-            });
-            pane.as_pane().detach(self, DetachType::Closed, ctx);
+            self.discard_child_agent_pane_for_conversation(conversation_id, ctx);
         }
     }
 

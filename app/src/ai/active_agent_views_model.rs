@@ -263,6 +263,7 @@ impl ActiveAgentViewsModel {
             .get(&terminal_view_id)
             .is_some_and(|handles| handles.controller.upgrade(ctx).is_some())
     }
+
     pub fn handle_pane_focus_change(
         &mut self,
         window_id: WindowId,
