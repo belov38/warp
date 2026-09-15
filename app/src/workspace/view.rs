@@ -25072,9 +25072,7 @@ impl TypedActionView for Workspace {
             ToggleVerticalTabsShowLinks => {
                 let new_value = TabSettings::handle(ctx).update(ctx, |settings, ctx| {
                     let new_value = !*settings.vertical_tabs_show_links.value();
-                    let _ = settings
-                        .vertical_tabs_show_links
-                        .set_value(new_value, ctx);
+                    let _ = settings.vertical_tabs_show_links.set_value(new_value, ctx);
                     new_value
                 });
                 send_telemetry_from_ctx!(

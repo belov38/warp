@@ -193,19 +193,53 @@ fn link_params_round_trip_and_reject_unknown_fields() {
 #[test]
 fn link_actions_have_stable_names_scopes_and_params() {
     let cases = [
-        (ActionKind::TabLinksSet, "tab.links.set", TargetScope::Tab, ActionParameterSpec::LinkSet),
-        (ActionKind::TabLinksRemove, "tab.links.remove", TargetScope::Tab, ActionParameterSpec::LinkRemove),
-        (ActionKind::TabLinksClear, "tab.links.clear", TargetScope::Tab, ActionParameterSpec::None),
-        (ActionKind::PaneLinksSet, "pane.links.set", TargetScope::Pane, ActionParameterSpec::LinkSet),
-        (ActionKind::PaneLinksRemove, "pane.links.remove", TargetScope::Pane, ActionParameterSpec::LinkRemove),
-        (ActionKind::PaneLinksClear, "pane.links.clear", TargetScope::Pane, ActionParameterSpec::None),
+        (
+            ActionKind::TabLinksSet,
+            "tab.links.set",
+            TargetScope::Tab,
+            ActionParameterSpec::LinkSet,
+        ),
+        (
+            ActionKind::TabLinksRemove,
+            "tab.links.remove",
+            TargetScope::Tab,
+            ActionParameterSpec::LinkRemove,
+        ),
+        (
+            ActionKind::TabLinksClear,
+            "tab.links.clear",
+            TargetScope::Tab,
+            ActionParameterSpec::None,
+        ),
+        (
+            ActionKind::PaneLinksSet,
+            "pane.links.set",
+            TargetScope::Pane,
+            ActionParameterSpec::LinkSet,
+        ),
+        (
+            ActionKind::PaneLinksRemove,
+            "pane.links.remove",
+            TargetScope::Pane,
+            ActionParameterSpec::LinkRemove,
+        ),
+        (
+            ActionKind::PaneLinksClear,
+            "pane.links.clear",
+            TargetScope::Pane,
+            ActionParameterSpec::None,
+        ),
     ];
     for (kind, name, scope, params) in cases {
         let metadata = kind.metadata();
         assert_eq!(kind.as_str(), name);
         assert_eq!(metadata.target_scope, scope, "{name}");
         assert_eq!(metadata.parameter_spec, params, "{name}");
-        assert_eq!(metadata.result_spec, ActionResultSpec::Acknowledgement, "{name}");
+        assert_eq!(
+            metadata.result_spec,
+            ActionResultSpec::Acknowledgement,
+            "{name}"
+        );
     }
 }
 

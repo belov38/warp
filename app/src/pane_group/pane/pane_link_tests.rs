@@ -1,5 +1,5 @@
 use super::{
-    MAX_PANE_LINKS, MAX_PANE_LINK_LABEL_CHARS, MAX_PANE_LINK_URL_CHARS, PaneLink, PaneLinkError,
+    MAX_PANE_LINK_LABEL_CHARS, MAX_PANE_LINK_URL_CHARS, MAX_PANE_LINKS, PaneLink, PaneLinkError,
     remove_link, upsert_link,
 };
 
@@ -9,8 +9,8 @@ fn link(label: &str, url: &str) -> PaneLink {
 
 #[test]
 fn validate_trims_label_and_accepts_https() {
-    let link = PaneLink::validate("  DELI-1878  ", "https://linear.app/x/issue/DELI-1878")
-        .expect("valid");
+    let link =
+        PaneLink::validate("  DELI-1878  ", "https://linear.app/x/issue/DELI-1878").expect("valid");
     assert_eq!(link.label, "DELI-1878");
     assert_eq!(link.url, "https://linear.app/x/issue/DELI-1878");
 }
@@ -33,7 +33,9 @@ fn validate_rejects_label_over_64_chars() {
     let long = "x".repeat(MAX_PANE_LINK_LABEL_CHARS + 1);
     assert_eq!(
         PaneLink::validate(&long, "https://a.b").unwrap_err(),
-        PaneLinkError::LabelTooLong { max: MAX_PANE_LINK_LABEL_CHARS }
+        PaneLinkError::LabelTooLong {
+            max: MAX_PANE_LINK_LABEL_CHARS
+        }
     );
     let ok = "x".repeat(MAX_PANE_LINK_LABEL_CHARS);
     assert!(PaneLink::validate(&ok, "https://a.b").is_ok());
@@ -56,7 +58,9 @@ fn validate_rejects_url_over_2048_chars() {
     let long = format!("https://a.b/{}", "x".repeat(MAX_PANE_LINK_URL_CHARS));
     assert_eq!(
         PaneLink::validate("l", &long).unwrap_err(),
-        PaneLinkError::UrlTooLong { max: MAX_PANE_LINK_URL_CHARS }
+        PaneLinkError::UrlTooLong {
+            max: MAX_PANE_LINK_URL_CHARS
+        }
     );
 }
 
@@ -64,11 +68,15 @@ fn validate_rejects_url_over_2048_chars() {
 fn validate_rejects_non_http_schemes_and_relative_urls() {
     assert_eq!(
         PaneLink::validate("l", "javascript:alert(1)").unwrap_err(),
-        PaneLinkError::UrlSchemeNotAllowed { scheme: "javascript".to_owned() }
+        PaneLinkError::UrlSchemeNotAllowed {
+            scheme: "javascript".to_owned()
+        }
     );
     assert_eq!(
         PaneLink::validate("l", "ftp://host/file").unwrap_err(),
-        PaneLinkError::UrlSchemeNotAllowed { scheme: "ftp".to_owned() }
+        PaneLinkError::UrlSchemeNotAllowed {
+            scheme: "ftp".to_owned()
+        }
     );
     assert_eq!(
         PaneLink::validate("l", "/just/a/path").unwrap_err(),
@@ -92,7 +100,9 @@ fn upsert_appends_in_order_until_cap() {
     );
     assert_eq!(
         upsert_link(&mut links, link("d", "https://d")),
-        Err(PaneLinkError::TooManyLinks { max: MAX_PANE_LINKS })
+        Err(PaneLinkError::TooManyLinks {
+            max: MAX_PANE_LINKS
+        })
     );
     assert_eq!(links.len(), 3);
 }
@@ -108,7 +118,11 @@ fn upsert_replaces_url_in_place_and_reports_no_change_for_identical() {
 
 #[test]
 fn upsert_at_cap_still_replaces_existing_label() {
-    let mut links = vec![link("a", "https://a"), link("b", "https://b"), link("c", "https://c")];
+    let mut links = vec![
+        link("a", "https://a"),
+        link("b", "https://b"),
+        link("c", "https://c"),
+    ];
     assert_eq!(upsert_link(&mut links, link("b", "https://b2")), Ok(true));
     assert_eq!(links[1].url, "https://b2");
 }
@@ -122,7 +136,11 @@ fn labels_compare_case_sensitively() {
 
 #[test]
 fn remove_keeps_order_and_errors_on_unknown_label() {
-    let mut links = vec![link("a", "https://a"), link("b", "https://b"), link("c", "https://c")];
+    let mut links = vec![
+        link("a", "https://a"),
+        link("b", "https://b"),
+        link("c", "https://c"),
+    ];
     assert_eq!(remove_link(&mut links, "b"), Ok(()));
     assert_eq!(
         links.iter().map(|l| l.label.as_str()).collect::<Vec<_>>(),
@@ -130,7 +148,9 @@ fn remove_keeps_order_and_errors_on_unknown_label() {
     );
     assert_eq!(
         remove_link(&mut links, "zzz"),
-        Err(PaneLinkError::NoSuchLabel { label: "zzz".to_owned() })
+        Err(PaneLinkError::NoSuchLabel {
+            label: "zzz".to_owned()
+        })
     );
 }
 
@@ -148,7 +168,10 @@ fn error_messages_match_the_product_spec() {
         "pane already has 3 links"
     );
     assert_eq!(
-        PaneLinkError::NoSuchLabel { label: "x".to_owned() }.to_string(),
+        PaneLinkError::NoSuchLabel {
+            label: "x".to_owned()
+        }
+        .to_string(),
         "no link with label \"x\""
     );
 }

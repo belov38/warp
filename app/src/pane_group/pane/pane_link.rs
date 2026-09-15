@@ -39,7 +39,10 @@ impl Display for PaneLinkError {
             Self::UrlTooLong { max } => write!(f, "url is longer than {max} characters"),
             Self::UrlNotParseable => write!(f, "url must be an absolute http(s) URL"),
             Self::UrlSchemeNotAllowed { scheme } => {
-                write!(f, "url scheme \"{scheme}\" is not allowed; use http or https")
+                write!(
+                    f,
+                    "url scheme \"{scheme}\" is not allowed; use http or https"
+                )
             }
             Self::TooManyLinks { max } => write!(f, "pane already has {max} links"),
             Self::NoSuchLabel { label } => write!(f, "no link with label \"{label}\""),
@@ -88,7 +91,10 @@ impl PaneLink {
 /// Appends `link`, or replaces the URL of the existing link with the same
 /// label in place. Returns `Ok(true)` when the list changed.
 pub fn upsert_link(links: &mut Vec<PaneLink>, link: PaneLink) -> Result<bool, PaneLinkError> {
-    if let Some(existing) = links.iter_mut().find(|existing| existing.label == link.label) {
+    if let Some(existing) = links
+        .iter_mut()
+        .find(|existing| existing.label == link.label)
+    {
         if existing.url == link.url {
             return Ok(false);
         }

@@ -1246,8 +1246,14 @@ fn summary_search_fragments_include_hidden_overflow_values() {
 #[test]
 fn link_chip_display_label_truncates_after_16_chars() {
     assert_eq!(link_chip_display_label("DELI-1878"), "DELI-1878");
-    assert_eq!(link_chip_display_label("abcdefghijklmnop"), "abcdefghijklmnop");
-    assert_eq!(link_chip_display_label("abcdefghijklmnopq"), "abcdefghijklmnop…");
+    assert_eq!(
+        link_chip_display_label("abcdefghijklmnop"),
+        "abcdefghijklmnop"
+    );
+    assert_eq!(
+        link_chip_display_label("abcdefghijklmnopq"),
+        "abcdefghijklmnop…"
+    );
 }
 
 #[test]

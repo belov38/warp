@@ -310,9 +310,8 @@ fn tab_links_set_parses_label_url_and_session() {
 fn pane_links_remove_requires_label() {
     assert!(ControlArgs::try_parse_from(["warpctrl", "pane", "links", "remove"]).is_err());
 
-    let args =
-        ControlArgs::try_parse_from(["warpctrl", "pane", "links", "remove", "--label", "x"])
-            .expect("pane links remove parses");
+    let args = ControlArgs::try_parse_from(["warpctrl", "pane", "links", "remove", "--label", "x"])
+        .expect("pane links remove parses");
     assert!(matches!(
         args.command,
         ControlCommand::Pane(PaneCommand::Links(LinksCommand::Remove(_)))
@@ -321,14 +320,13 @@ fn pane_links_remove_requires_label() {
 
 #[test]
 fn links_set_requires_both_flags() {
-    assert!(ControlArgs::try_parse_from([
-        "warpctrl", "tab", "links", "set", "--label", "x"
-    ])
-    .is_err());
-    assert!(ControlArgs::try_parse_from([
-        "warpctrl", "tab", "links", "set", "--url", "https://x"
-    ])
-    .is_err());
+    assert!(
+        ControlArgs::try_parse_from(["warpctrl", "tab", "links", "set", "--label", "x"]).is_err()
+    );
+    assert!(
+        ControlArgs::try_parse_from(["warpctrl", "tab", "links", "set", "--url", "https://x"])
+            .is_err()
+    );
 }
 
 #[test]
@@ -413,7 +411,14 @@ fn retained_action_examples() -> Vec<(ActionKind, Vec<&'static str>)> {
         (
             ActionKind::TabLinksSet,
             vec![
-                "warpctrl", "tab", "links", "set", "--label", "docs", "--url", "https://x",
+                "warpctrl",
+                "tab",
+                "links",
+                "set",
+                "--label",
+                "docs",
+                "--url",
+                "https://x",
             ],
         ),
         (
@@ -467,7 +472,14 @@ fn retained_action_examples() -> Vec<(ActionKind, Vec<&'static str>)> {
         (
             ActionKind::PaneLinksSet,
             vec![
-                "warpctrl", "pane", "links", "set", "--label", "docs", "--url", "https://x",
+                "warpctrl",
+                "pane",
+                "links",
+                "set",
+                "--label",
+                "docs",
+                "--url",
+                "https://x",
             ],
         ),
         (

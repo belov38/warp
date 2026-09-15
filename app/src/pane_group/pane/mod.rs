@@ -33,6 +33,10 @@ pub mod workflow_pane;
 use std::any::Any;
 use std::fmt::Display;
 
+pub use pane_link::{
+    MAX_PANE_LINK_LABEL_CHARS, MAX_PANE_LINK_URL_CHARS, MAX_PANE_LINKS, PaneLink, PaneLinkError,
+    remove_link, upsert_link,
+};
 use serde::{Deserialize, Serialize};
 use url::Url;
 use warp_util::remote_path::RemotePath;
@@ -44,10 +48,6 @@ use warpui::{
 };
 
 pub use self::view::{PaneHeaderAction, PaneHeaderCustomAction, PaneView, PaneViewEvent};
-pub use pane_link::{
-    MAX_PANE_LINK_LABEL_CHARS, MAX_PANE_LINK_URL_CHARS, MAX_PANE_LINKS, PaneLink, PaneLinkError,
-    remove_link, upsert_link,
-};
 use super::{ActivationReason, LeafContents, PaneGroup, PaneGroupAction};
 use crate::ai::ai_document_view::AIDocumentView;
 use crate::ai::blocklist::inline_action::code_diff_view::CodeDiffView;
