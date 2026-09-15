@@ -3,6 +3,7 @@ pub mod telemetry;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 use languages::language_by_local_filename;
@@ -50,7 +51,7 @@ use crate::context_chips::github_pr_display_text_from_url;
 use crate::drive::DriveObjectType;
 use crate::drive::cloud_object_styling::warp_drive_icon_color;
 use crate::editor::EditorView;
-use crate::pane_group::pane::IPaneType;
+use crate::pane_group::pane::{IPaneType, PaneLink};
 use crate::pane_group::{
     CodePane, NotebookPane, PaneGroup, PaneId, TabBarHoverIndex, TerminalPane, WorkflowPane,
 };
@@ -392,6 +393,7 @@ fn render_pane_row_element(
         title: _,
         subtitle: _,
         custom_vertical_tabs_title: _,
+        custom_links: _,
         display_title_override: _,
         is_focused,
         typed: _,
@@ -590,6 +592,20 @@ fn render_pane_row_element(
 struct PaneRowBadgeMouseStates {
     diff_stats: MouseStateHandle,
     pull_request: MouseStateHandle,
+    /// One handle per link chip, grown on demand so each chip hovers
+    /// independently across frames. Wrapped in `Rc<RefCell>` so clones of
+    /// this struct (it is cloned into `PaneProps` each frame) share handles.
+    links: Rc<RefCell<Vec<MouseStateHandle>>>,
+}
+
+impl PaneRowBadgeMouseStates {
+    fn link_mouse_state(&self, index: usize) -> MouseStateHandle {
+        let mut links = self.links.borrow_mut();
+        while links.len() <= index {
+            links.push(MouseStateHandle::default());
+        }
+        links[index].clone()
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -828,6 +844,8 @@ struct PaneProps<'a> {
     title: String,
     subtitle: String,
     custom_vertical_tabs_title: Option<String>,
+    /// Script-supplied links for this pane, in storage order.
+    custom_links: Vec<PaneLink>,
     display_title_override: Option<String>,
     is_focused: bool,
     typed: TypedPane<'a>,
@@ -3942,6 +3960,7 @@ impl<'a> PaneProps<'a> {
                         .map(str::to_owned)
                 })
                 .flatten(),
+            custom_links: pane_configuration.custom_links().to_vec(),
             display_title_override,
             is_focused: pane_group.focused_pane_id(app) == pane_id,
             typed,
@@ -4288,6 +4307,19 @@ fn terminal_pull_request_badge_label(pull_request_url: &str) -> String {
         .unwrap_or_else(|| pull_request_url.to_string())
 }
 
+/// Chips share one fixed-height metadata row with the branch text, so long
+/// labels are cut at 16 characters for display. Storage keeps the full label.
+pub(super) fn link_chip_display_label(label: &str) -> String {
+    const MAX_CHARS: usize = 16;
+    let mut chars = label.chars();
+    let shown: String = chars.by_ref().take(MAX_CHARS).collect();
+    if chars.next().is_some() {
+        format!("{shown}…")
+    } else {
+        shown
+    }
+}
+
 fn vtab_diff_stats_tokens(line_changes: &GitLineChanges) -> Vec<String> {
     let mut tokens = Vec::new();
     if line_changes.lines_added > 0 {
@@ -4542,6 +4574,7 @@ fn render_terminal_row_content(
             metadata_left,
             chip_entrypoint_for_granularity(props.display_granularity),
             &props.badge_mouse_states,
+            &props.custom_links,
             appearance,
             app,
         ))
@@ -5358,6 +5391,7 @@ fn render_terminal_metadata_line(
     left_content: MetadataLeftContent,
     row_entrypoint: VerticalTabsChipEntrypoint,
     badge_mouse_states: &PaneRowBadgeMouseStates,
+    custom_links: &[PaneLink],
     appearance: &Appearance,
     app: &AppContext,
 ) -> Box<dyn Element> {
@@ -5400,6 +5434,7 @@ fn render_terminal_metadata_line(
         pane_id,
         row_entrypoint,
         badge_mouse_states,
+        custom_links,
         appearance,
         app,
     ) {
@@ -5418,6 +5453,7 @@ fn render_terminal_right_badges(
     pane_id: PaneId,
     entrypoint: VerticalTabsChipEntrypoint,
     badge_mouse_states: &PaneRowBadgeMouseStates,
+    custom_links: &[PaneLink],
     appearance: &Appearance,
     app: &AppContext,
 ) -> Option<Box<dyn Element>> {
@@ -5454,6 +5490,19 @@ fn render_terminal_right_badges(
             appearance,
         ));
         has_badges = true;
+    }
+
+    let show_links = true; // TODO(Task 5): read TabSettings::vertical_tabs_show_links
+    if show_links {
+        for (index, link) in custom_links.iter().enumerate() {
+            right_badges.add_child(render_terminal_link_badge(
+                link,
+                badge_mouse_states.link_mouse_state(index),
+                true,
+                appearance,
+            ));
+            has_badges = true;
+        }
     }
 
     has_badges.then(|| right_badges.finish())
@@ -5600,6 +5649,56 @@ fn render_pull_request_badge_content(label: &str, appearance: &Appearance) -> Bo
         .with_spacing(4.)
         .with_child(
             ConstrainedBox::new(UiIcon::Github.to_warpui_icon(main_text_color).finish())
+                .with_width(BADGE_ICON_SIZE)
+                .with_height(BADGE_ICON_SIZE)
+                .finish(),
+        )
+        .with_child(
+            Text::new_inline(label.to_string(), appearance.ui_font_family(), 10.)
+                .with_color(sub_text_color.into())
+                .finish(),
+        )
+        .finish()
+}
+
+fn render_terminal_link_badge(
+    link: &PaneLink,
+    mouse_state: MouseStateHandle,
+    truncate: bool,
+    appearance: &Appearance,
+) -> Box<dyn Element> {
+    let theme = appearance.theme();
+    let label = if truncate {
+        link_chip_display_label(&link.label)
+    } else {
+        link.label.clone()
+    };
+    let url = link.url.clone();
+
+    Hoverable::new(mouse_state, move |state| {
+        let bg = if state.is_hovered() {
+            internal_colors::fg_overlay_2(theme)
+        } else {
+            internal_colors::fg_overlay_1(theme)
+        };
+        render_badge_container(render_link_badge_content(&label, appearance), bg)
+    })
+    .on_click(move |ctx, _app, _| {
+        ctx.dispatch_typed_action(WorkspaceAction::OpenLink(url.clone()));
+    })
+    .with_cursor(Cursor::PointingHand)
+    .finish()
+}
+
+fn render_link_badge_content(label: &str, appearance: &Appearance) -> Box<dyn Element> {
+    let theme = appearance.theme();
+    let main_text_color = theme.main_text_color(theme.background());
+    let sub_text_color = theme.sub_text_color(theme.background());
+    Flex::row()
+        .with_cross_axis_alignment(CrossAxisAlignment::Center)
+        .with_spacing(4.)
+        .with_child(
+            ConstrainedBox::new(UiIcon::Link.to_warpui_icon(main_text_color).finish())
                 .with_width(BADGE_ICON_SIZE)
                 .with_height(BADGE_ICON_SIZE)
                 .finish(),
@@ -6905,6 +7004,18 @@ fn render_terminal_detail_section(
             appearance,
         ));
         has_right_badges = true;
+    }
+    let show_links = true; // TODO(Task 5): read TabSettings::vertical_tabs_show_links
+    if show_links {
+        for (index, link) in props.custom_links.iter().enumerate() {
+            right_badges.add_child(render_terminal_link_badge(
+                link,
+                props.badge_mouse_states.link_mouse_state(index),
+                false,
+                appearance,
+            ));
+            has_right_badges = true;
+        }
     }
     if has_right_badges {
         metadata_row.add_child(right_badges.finish());

@@ -12,7 +12,7 @@ use super::{
     VerticalTabsDetailTargetKind, VerticalTabsSummaryBranchEntry, VerticalTabsSummaryData,
     VerticalTabsSummaryPrimaryLabel, branch_label_display, coalesce_summary_branch_entries,
     code_detail_kind_label, compact_branch_subtitle_display, detail_sidecar_width_and_bounds,
-    detail_target_for_hovered_row, non_terminal_search_text_fragments,
+    detail_target_for_hovered_row, link_chip_display_label, non_terminal_search_text_fragments,
     pane_ids_for_display_granularity, pane_search_text_fragments, preferred_agent_tab_titles,
     push_normalized_unique_summary_label, search_fragments_contain_query,
     select_summary_pane_kind_icons, should_keep_detail_sidecar_visible_for_mouse_position,
@@ -1241,4 +1241,19 @@ fn summary_search_fragments_include_hidden_overflow_values() {
     assert!(search_fragments_contain_query(&fragments, "#789"));
     assert!(search_fragments_contain_query(&fragments, "+2"));
     assert!(search_fragments_contain_query(&fragments, "-3"));
+}
+
+#[test]
+fn link_chip_display_label_truncates_after_16_chars() {
+    assert_eq!(link_chip_display_label("DELI-1878"), "DELI-1878");
+    assert_eq!(link_chip_display_label("abcdefghijklmnop"), "abcdefghijklmnop");
+    assert_eq!(link_chip_display_label("abcdefghijklmnopq"), "abcdefghijklmnop…");
+}
+
+#[test]
+fn link_chip_display_label_counts_chars_not_bytes() {
+    let label = "ёжик".repeat(5); // 20 chars, 40 bytes
+    let shown = link_chip_display_label(&label);
+    assert_eq!(shown.chars().count(), 17);
+    assert!(shown.ends_with('…'));
 }
