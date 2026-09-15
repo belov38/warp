@@ -24,6 +24,7 @@ pub(super) mod get_started_view;
 pub(super) mod local_harness_launch;
 pub(super) mod network_log_pane;
 pub(super) mod notebook_pane;
+pub mod pane_link;
 pub(super) mod settings_pane;
 pub(super) mod terminal_pane;
 pub mod view;
@@ -43,6 +44,10 @@ use warpui::{
 };
 
 pub use self::view::{PaneHeaderAction, PaneHeaderCustomAction, PaneView, PaneViewEvent};
+pub use pane_link::{
+    MAX_PANE_LINK_LABEL_CHARS, MAX_PANE_LINK_URL_CHARS, MAX_PANE_LINKS, PaneLink, PaneLinkError,
+    remove_link, upsert_link,
+};
 use super::{ActivationReason, LeafContents, PaneGroup, PaneGroupAction};
 use crate::ai::ai_document_view::AIDocumentView;
 use crate::ai::blocklist::inline_action::code_diff_view::CodeDiffView;
