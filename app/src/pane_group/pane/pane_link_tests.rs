@@ -200,3 +200,23 @@ fn error_messages_match_the_product_spec() {
         "no link with label \"x\""
     );
 }
+
+#[test]
+fn validate_rejects_url_whose_normalized_form_exceeds_the_cap() {
+    // "ф" is 2 bytes in UTF-8 and percent-encodes to 6 ASCII chars, so a raw
+    // URL well under the cap can normalize past it.
+    let raw = format!("https://a.b/{}", "ф".repeat(700));
+    assert!(raw.chars().count() < MAX_PANE_LINK_URL_CHARS);
+    assert_eq!(
+        PaneLink::validate("l", &raw).unwrap_err(),
+        PaneLinkError::UrlTooLong { max: MAX_PANE_LINK_URL_CHARS }
+    );
+}
+
+#[test]
+fn validate_accepts_url_whose_normalized_form_fits_the_cap() {
+    let raw = format!("https://a.b/{}", "ф".repeat(300));
+    let link = PaneLink::validate("l", &raw).expect("fits after normalization");
+    assert!(link.url.chars().count() <= MAX_PANE_LINK_URL_CHARS);
+    assert!(link.url.contains("%D1%84"));
+}

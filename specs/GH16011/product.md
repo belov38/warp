@@ -33,7 +33,7 @@ The Vertical Tabs card already shows a PR chip, but it only knows about GitHub p
 
 1. A link is a `{label, url}` pair. Each pane has an ordered list of zero to three links. Labels are unique within a pane, compared exactly (case-sensitive) after trimming surrounding whitespace.
 
-2. A label is accepted when, after trimming, it is between 1 and 64 characters long and contains no control characters (including newlines). A URL is accepted when it parses as an absolute URL with scheme `http` or `https` and is at most 2048 characters long. Any other label or URL is rejected with an `invalid_params` error that names the offending field; the pane's links are left unchanged.
+2. A label is accepted when, after trimming, it is between 1 and 64 characters long and contains no control characters (including newlines). A URL is accepted when, after trimming, it contains no control characters and parses as an absolute URL with scheme `http` or `https`; it is stored and returned in its normalized form (for example `https://a` becomes `https://a/`), and that normalized form is at most 2048 characters long. Any other label or URL is rejected with an `invalid_params` error that names the offending field; the pane's links are left unchanged.
 
 3. `set` with a label that is not yet on the pane appends the link at the end of the list. If the pane already has three links, `set` with a new label fails with `invalid_params` ("pane already has 3 links") and changes nothing. Callers that want to rotate links use `remove` or `clear` first.
 

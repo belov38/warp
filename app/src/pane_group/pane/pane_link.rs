@@ -88,9 +88,16 @@ impl PaneLink {
             }
         }
 
+        let normalized = parsed.as_str();
+        if normalized.chars().count() > MAX_PANE_LINK_URL_CHARS {
+            return Err(PaneLinkError::UrlTooLong {
+                max: MAX_PANE_LINK_URL_CHARS,
+            });
+        }
+
         Ok(PaneLink {
             label: label.to_owned(),
-            url: parsed.as_str().to_owned(),
+            url: normalized.to_owned(),
         })
     }
 }
