@@ -7883,6 +7883,7 @@ impl PaneGroup {
                 event,
                 PaneConfigurationEvent::TitleUpdated
                     | PaneConfigurationEvent::VerticalTabsTitleUpdated
+                    | PaneConfigurationEvent::LinksUpdated
             ) {
                 ctx.emit(Event::PaneTitleUpdated);
             }

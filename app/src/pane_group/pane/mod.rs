@@ -696,6 +696,9 @@ pub struct PaneConfiguration {
     title: String,
     title_secondary: String,
     custom_vertical_tabs_title: Option<String>,
+    /// Script-supplied links rendered as chips on the pane's Vertical Tabs card.
+    /// Capped at `MAX_PANE_LINKS`; see `pane_link.rs`.
+    custom_links: Vec<PaneLink>,
     show_active_pane_indicator: bool,
 
     /// If true, we draw an accent border around the pane.
@@ -723,6 +726,7 @@ impl PaneConfiguration {
             title: title.into(),
             title_secondary: String::from(""),
             custom_vertical_tabs_title: None,
+            custom_links: Vec::new(),
             show_active_pane_indicator: false,
             show_accent_border: false,
             has_open_modal: false,
@@ -796,6 +800,47 @@ impl PaneConfiguration {
     pub fn clear_custom_vertical_tabs_title(&mut self, ctx: &mut ModelContext<Self>) {
         if self.custom_vertical_tabs_title.take().is_some() {
             ctx.emit(PaneConfigurationEvent::VerticalTabsTitleUpdated);
+        }
+    }
+
+    pub fn custom_links(&self) -> &[PaneLink] {
+        &self.custom_links
+    }
+
+    pub fn upsert_custom_link(
+        &mut self,
+        link: PaneLink,
+        ctx: &mut ModelContext<Self>,
+    ) -> Result<(), PaneLinkError> {
+        if upsert_link(&mut self.custom_links, link)? {
+            ctx.emit(PaneConfigurationEvent::LinksUpdated);
+        }
+        Ok(())
+    }
+
+    pub fn remove_custom_link(
+        &mut self,
+        label: &str,
+        ctx: &mut ModelContext<Self>,
+    ) -> Result<(), PaneLinkError> {
+        remove_link(&mut self.custom_links, label)?;
+        ctx.emit(PaneConfigurationEvent::LinksUpdated);
+        Ok(())
+    }
+
+    pub fn clear_custom_links(&mut self, ctx: &mut ModelContext<Self>) {
+        if !self.custom_links.is_empty() {
+            self.custom_links.clear();
+            ctx.emit(PaneConfigurationEvent::LinksUpdated);
+        }
+    }
+
+    /// Used when restoring a persisted pane. Skips validation on purpose: the
+    /// values were validated when they were set, and restore must never fail.
+    pub fn replace_custom_links(&mut self, links: Vec<PaneLink>, ctx: &mut ModelContext<Self>) {
+        if self.custom_links != links {
+            self.custom_links = links;
+            ctx.emit(PaneConfigurationEvent::LinksUpdated);
         }
     }
 
@@ -879,6 +924,8 @@ impl PaneConfiguration {
 pub enum PaneConfigurationEvent {
     TitleUpdated,
     VerticalTabsTitleUpdated,
+    /// The pane's custom links changed. Vertical Tabs re-renders; pane headers do not.
+    LinksUpdated,
     ShowActivePaneIndicatorUpdated,
     RenderElementFnUpdated,
     ShowAccentBorderUpdated,
