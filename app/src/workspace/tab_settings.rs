@@ -562,6 +562,16 @@ define_settings_group!(TabSettings, settings: [
         toml_path: "appearance.vertical_tabs.show_diff_stats",
         description: "Whether to show diff stats on vertical tabs.",
     },
+    vertical_tabs_show_links: VerticalTabsShowLinks {
+        type: bool,
+        default: true,
+        supported_platforms: SupportedPlatforms::ALL,
+        sync_to_cloud: SyncToCloud::Globally(RespectUserSyncSetting::Yes),
+        surface: settings::SettingSurfaces::GUI,
+        private: false,
+        toml_path: "appearance.vertical_tabs.show_links",
+        description: "Whether to show custom link chips on vertical tabs.",
+    },
     vertical_tabs_show_details_on_hover: VerticalTabsShowDetailsOnHover {
         type: bool,
         default: true,

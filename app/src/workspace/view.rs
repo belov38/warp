@@ -3895,6 +3895,7 @@ impl Workspace {
             }
             | TabSettingsChangedEvent::VerticalTabsShowPrLink { .. }
             | TabSettingsChangedEvent::VerticalTabsShowDiffStats { .. }
+            | TabSettingsChangedEvent::VerticalTabsShowLinks { .. }
             | TabSettingsChangedEvent::HideTitleBarSearchBarInVerticalTabs { .. } => {
                 ctx.notify();
             }
@@ -25063,6 +25064,22 @@ impl TypedActionView for Workspace {
                 send_telemetry_from_ctx!(
                     VerticalTabsTelemetryEvent::DisplayOptionChanged(
                         VerticalTabsDisplayOption::ShowDiffStats(new_value),
+                    ),
+                    ctx
+                );
+                ctx.notify();
+            }
+            ToggleVerticalTabsShowLinks => {
+                let new_value = TabSettings::handle(ctx).update(ctx, |settings, ctx| {
+                    let new_value = !*settings.vertical_tabs_show_links.value();
+                    let _ = settings
+                        .vertical_tabs_show_links
+                        .set_value(new_value, ctx);
+                    new_value
+                });
+                send_telemetry_from_ctx!(
+                    VerticalTabsTelemetryEvent::DisplayOptionChanged(
+                        VerticalTabsDisplayOption::ShowLinks(new_value),
                     ),
                     ctx
                 );

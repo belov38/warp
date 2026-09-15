@@ -743,6 +743,7 @@ pub(super) struct VerticalTabsPanelState {
     show_pr_link_mouse_state: MouseStateHandle,
     show_pr_link_info_tooltip_mouse_state: MouseStateHandle,
     show_diff_stats_mouse_state: MouseStateHandle,
+    show_links_mouse_state: MouseStateHandle,
     show_details_on_hover_mouse_state: MouseStateHandle,
     panel_right_click_mouse_state: MouseStateHandle,
     pub(super) show_settings_popup: bool,
@@ -781,6 +782,7 @@ impl Default for VerticalTabsPanelState {
             show_pr_link_mouse_state: Default::default(),
             show_pr_link_info_tooltip_mouse_state: Default::default(),
             show_diff_stats_mouse_state: Default::default(),
+            show_links_mouse_state: Default::default(),
             show_details_on_hover_mouse_state: Default::default(),
             panel_right_click_mouse_state: Default::default(),
             show_settings_popup: false,
@@ -5492,7 +5494,7 @@ fn render_terminal_right_badges(
         has_badges = true;
     }
 
-    let show_links = true; // TODO(Task 5): read TabSettings::vertical_tabs_show_links
+    let show_links = *TabSettings::as_ref(app).vertical_tabs_show_links.value();
     if show_links {
         for (index, link) in custom_links.iter().enumerate() {
             right_badges.add_child(render_terminal_link_badge(
@@ -5897,6 +5899,7 @@ pub(super) fn render_settings_popup(
     let show_diff_stats = *TabSettings::as_ref(app)
         .vertical_tabs_show_diff_stats
         .value();
+    let show_links = *TabSettings::as_ref(app).vertical_tabs_show_links.value();
     let show_details_on_hover = *TabSettings::as_ref(app)
         .vertical_tabs_show_details_on_hover
         .value();
@@ -6225,6 +6228,15 @@ pub(super) fn render_settings_popup(
                 show_diff_stats,
                 state.show_diff_stats_mouse_state.clone(),
                 WorkspaceAction::ToggleVerticalTabsShowDiffStats,
+                None,
+                appearance,
+                theme,
+            ));
+            popup_col.add_child(render_show_toggle_option(
+                "Links",
+                show_links,
+                state.show_links_mouse_state.clone(),
+                WorkspaceAction::ToggleVerticalTabsShowLinks,
                 None,
                 appearance,
                 theme,
@@ -7005,7 +7017,7 @@ fn render_terminal_detail_section(
         ));
         has_right_badges = true;
     }
-    let show_links = true; // TODO(Task 5): read TabSettings::vertical_tabs_show_links
+    let show_links = *TabSettings::as_ref(app).vertical_tabs_show_links.value();
     if show_links {
         for (index, link) in props.custom_links.iter().enumerate() {
             right_badges.add_child(render_terminal_link_badge(

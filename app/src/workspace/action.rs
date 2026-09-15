@@ -393,6 +393,7 @@ pub enum WorkspaceAction {
     SetVerticalTabsCompactSubtitle(VerticalTabsCompactSubtitle),
     ToggleVerticalTabsShowPrLink,
     ToggleVerticalTabsShowDiffStats,
+    ToggleVerticalTabsShowLinks,
     ToggleVerticalTabsShowDetailsOnHover,
     /// Closes the focused panel. This happens as an explicit action from the user.
     ClosePanel,
@@ -1091,6 +1092,7 @@ impl WorkspaceAction {
             | SetVerticalTabsCompactSubtitle(_)
             | ToggleVerticalTabsShowPrLink
             | ToggleVerticalTabsShowDiffStats
+            | ToggleVerticalTabsShowLinks
             | ToggleVerticalTabsShowDetailsOnHover
             | ToggleWelcomeTips
             | CopyTextToClipboard(_)

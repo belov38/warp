@@ -127,3 +127,22 @@ fn header_toolbar_chip_selection_custom_empty_reports_all_absent() {
         assert!(!config.contains_item(&item));
     }
 }
+
+#[test]
+fn vertical_tabs_show_links_defaults_to_true() {
+    App::test((), |mut app| async move {
+        initialize_settings_for_tests(&mut app);
+
+        TabSettings::handle(&app).read(&app, |settings, _ctx| {
+            assert!(*settings.vertical_tabs_show_links);
+        });
+    });
+}
+
+#[test]
+fn vertical_tabs_show_links_uses_vertical_tabs_path() {
+    assert_eq!(
+        VerticalTabsShowLinks::toml_path(),
+        Some("appearance.vertical_tabs.show_links")
+    );
+}
