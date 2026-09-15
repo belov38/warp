@@ -5449,6 +5449,8 @@ fn render_terminal_metadata_line(
         .finish()
 }
 
+// Mirrors render_terminal_metadata_line's parameter list, which carries the same allow.
+#[allow(clippy::too_many_arguments)]
 fn render_terminal_right_badges(
     terminal_view: &TerminalView,
     pane_group_id: EntityId,
