@@ -65,6 +65,31 @@ fn validate_rejects_url_over_2048_chars() {
 }
 
 #[test]
+fn validate_rejects_urls_with_embedded_control_characters() {
+    assert_eq!(
+        PaneLink::validate("l", "https://a.b/x\ny").unwrap_err(),
+        PaneLinkError::UrlHasControlCharacters
+    );
+}
+
+#[test]
+fn validate_stores_the_parsed_and_normalized_url() {
+    let link = PaneLink::validate("l", "https://Example.com/x").expect("valid");
+    assert_eq!(
+        link.url,
+        url::Url::parse("https://Example.com/x").unwrap().as_str()
+    );
+}
+
+#[test]
+fn validate_accepts_url_at_exactly_the_max_length() {
+    let padding = "x".repeat(MAX_PANE_LINK_URL_CHARS - "https://a.b/".len());
+    let long = format!("https://a.b/{padding}");
+    assert_eq!(long.chars().count(), MAX_PANE_LINK_URL_CHARS);
+    assert!(PaneLink::validate("l", &long).is_ok());
+}
+
+#[test]
 fn validate_rejects_non_http_schemes_and_relative_urls() {
     assert_eq!(
         PaneLink::validate("l", "javascript:alert(1)").unwrap_err(),
@@ -111,7 +136,7 @@ fn upsert_appends_in_order_until_cap() {
 fn upsert_replaces_url_in_place_and_reports_no_change_for_identical() {
     let mut links = vec![link("a", "https://a"), link("b", "https://b")];
     assert_eq!(upsert_link(&mut links, link("a", "https://a2")), Ok(true));
-    assert_eq!(links[0].url, "https://a2");
+    assert_eq!(links[0].url, "https://a2/");
     assert_eq!(links[1].label, "b");
     assert_eq!(upsert_link(&mut links, link("a", "https://a2")), Ok(false));
 }
@@ -124,7 +149,7 @@ fn upsert_at_cap_still_replaces_existing_label() {
         link("c", "https://c"),
     ];
     assert_eq!(upsert_link(&mut links, link("b", "https://b2")), Ok(true));
-    assert_eq!(links[1].url, "https://b2");
+    assert_eq!(links[1].url, "https://b2/");
 }
 
 #[test]

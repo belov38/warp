@@ -90,7 +90,7 @@ use crate::cloud_object::{CloudObject, ObjectIdType};
 use crate::code::editor_management::CodeSource;
 use crate::drive::OpenWarpDriveObjectSettings;
 use crate::notebooks::NotebookId;
-use crate::pane_group::pane::PaneLink;
+use crate::pane_group::pane::{MAX_PANE_LINKS, PaneLink};
 use crate::persistence::block_list::{
     get_all_restored_blocks, process_ai_queries_for_nld_history_match,
     process_ai_queries_for_uparrow_prompt, read_recent_ai_queries,
@@ -2427,7 +2427,7 @@ fn read_node(conn: &mut SqliteConnection, node: model::PaneNode) -> Result<PaneN
                 other => bail!("Unrecognized pane kind: {other}"),
             };
 
-            let custom_links = pane
+            let mut custom_links = pane
                 .custom_links
                 .as_deref()
                 .filter(|json| !json.trim().is_empty())
@@ -2437,7 +2437,17 @@ fn read_node(conn: &mut SqliteConnection, node: model::PaneNode) -> Result<PaneN
                         Vec::new()
                     })
                 })
-                .unwrap_or_default();
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|link| match PaneLink::validate(&link.label, &link.url) {
+                    Ok(validated) => Some(validated),
+                    Err(err) => {
+                        log::warn!("Dropping invalid pane_leaves.custom_links entry: {err}");
+                        None
+                    }
+                })
+                .collect::<Vec<_>>();
+            custom_links.truncate(MAX_PANE_LINKS);
             Ok(PaneNodeSnapshot::Leaf(LeafSnapshot {
                 is_focused: pane.is_focused,
                 custom_vertical_tabs_title: pane.custom_vertical_tabs_title,

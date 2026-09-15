@@ -79,7 +79,7 @@ fn pane_links_set_appends_replaces_and_caps() {
                 pane_links_set(&instance_id, &target, &set_action("b", "https://b2"), ctx)
                     .expect("replace keeps position");
             assert_eq!(labels(&replaced), ["a", "b", "c"]);
-            assert_eq!(replaced["links"][1]["url"], "https://b2");
+            assert_eq!(replaced["links"][1]["url"], "https://b2/");
 
             let err = pane_links_set(&instance_id, &target, &set_action("d", "https://d"), ctx)
                 .expect_err("fourth link is rejected");
@@ -172,7 +172,7 @@ fn pane_list_reports_links() {
             let panes = listed["panes"].as_array().expect("panes");
             assert_eq!(panes.len(), 1);
             assert_eq!(panes[0]["links"][0]["label"], "a");
-            assert_eq!(panes[0]["links"][0]["url"], "https://a");
+            assert_eq!(panes[0]["links"][0]["url"], "https://a/");
         });
     });
 }

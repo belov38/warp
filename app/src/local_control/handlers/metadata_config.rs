@@ -541,7 +541,8 @@ fn select_pane_entry_for_session(
             // that is not the active one.
             let tabs = select_tab_entries_across_windows(&search, action, ctx)?;
             let entries = pane_entries_for_tabs(tabs, ctx);
-            let matches: Vec<PaneEntry> = match id.0.trim().parse::<u64>() {
+            let raw = id.0.trim();
+            let matches: Vec<PaneEntry> = match raw.parse::<u64>() {
                 Ok(shell_session_id) => {
                     let wanted = SessionId::from(shell_session_id);
                     entries
@@ -560,7 +561,7 @@ fn select_pane_entry_for_session(
                 }
                 Err(_) => entries
                     .into_iter()
-                    .filter(|entry| entry.pane_id.to_string() == id.0)
+                    .filter(|entry| entry.pane_id.to_string() == raw)
                     .collect(),
             };
             match matches.as_slice() {

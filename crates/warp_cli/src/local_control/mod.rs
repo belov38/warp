@@ -773,11 +773,11 @@ pub struct LinkSetArgs {
     pub target: TargetArgs,
 
     /// Chip text, unique per pane (1-64 characters).
-    #[arg(long)]
+    #[arg(long, value_parser = clap::builder::NonEmptyStringValueParser::new())]
     pub label: String,
 
     /// http(s) URL opened when the chip is clicked.
-    #[arg(long)]
+    #[arg(long, value_parser = clap::builder::NonEmptyStringValueParser::new())]
     pub url: String,
 }
 
@@ -787,7 +787,7 @@ pub struct LinkRemoveArgs {
     pub target: TargetArgs,
 
     /// Label of the chip to remove.
-    #[arg(long)]
+    #[arg(long, value_parser = clap::builder::NonEmptyStringValueParser::new())]
     pub label: String,
 }
 

@@ -5564,7 +5564,10 @@ fn render_terminal_pull_request_badge(
         } else {
             internal_colors::fg_overlay_1(theme)
         };
-        render_badge_container(render_pull_request_badge_content(&label, appearance), bg)
+        render_badge_container(
+            render_badge_icon_label_content(UiIcon::Github, &label, appearance),
+            bg,
+        )
     })
     .on_click(move |ctx, app, _| {
         send_telemetry_from_app_ctx!(
@@ -5582,7 +5585,7 @@ fn render_passive_terminal_pull_request_badge(
     appearance: &Appearance,
 ) -> Box<dyn Element> {
     render_badge_container(
-        render_pull_request_badge_content(label, appearance),
+        render_badge_icon_label_content(UiIcon::Github, label, appearance),
         internal_colors::fg_overlay_1(appearance.theme()),
     )
 }
@@ -5644,7 +5647,11 @@ fn render_badge_container(content: Box<dyn Element>, background: ThemeFill) -> B
         .finish()
 }
 
-fn render_pull_request_badge_content(label: &str, appearance: &Appearance) -> Box<dyn Element> {
+fn render_badge_icon_label_content(
+    icon: UiIcon,
+    label: &str,
+    appearance: &Appearance,
+) -> Box<dyn Element> {
     let theme = appearance.theme();
     let main_text_color = theme.main_text_color(theme.background());
     let sub_text_color = theme.sub_text_color(theme.background());
@@ -5652,7 +5659,7 @@ fn render_pull_request_badge_content(label: &str, appearance: &Appearance) -> Bo
         .with_cross_axis_alignment(CrossAxisAlignment::Center)
         .with_spacing(4.)
         .with_child(
-            ConstrainedBox::new(UiIcon::Github.to_warpui_icon(main_text_color).finish())
+            ConstrainedBox::new(icon.to_warpui_icon(main_text_color).finish())
                 .with_width(BADGE_ICON_SIZE)
                 .with_height(BADGE_ICON_SIZE)
                 .finish(),
@@ -5685,34 +5692,16 @@ fn render_terminal_link_badge(
         } else {
             internal_colors::fg_overlay_1(theme)
         };
-        render_badge_container(render_link_badge_content(&label, appearance), bg)
+        render_badge_container(
+            render_badge_icon_label_content(UiIcon::Link, &label, appearance),
+            bg,
+        )
     })
     .on_click(move |ctx, _app, _| {
         ctx.dispatch_typed_action(WorkspaceAction::OpenLink(url.clone()));
     })
     .with_cursor(Cursor::PointingHand)
     .finish()
-}
-
-fn render_link_badge_content(label: &str, appearance: &Appearance) -> Box<dyn Element> {
-    let theme = appearance.theme();
-    let main_text_color = theme.main_text_color(theme.background());
-    let sub_text_color = theme.sub_text_color(theme.background());
-    Flex::row()
-        .with_cross_axis_alignment(CrossAxisAlignment::Center)
-        .with_spacing(4.)
-        .with_child(
-            ConstrainedBox::new(UiIcon::Link.to_warpui_icon(main_text_color).finish())
-                .with_width(BADGE_ICON_SIZE)
-                .with_height(BADGE_ICON_SIZE)
-                .finish(),
-        )
-        .with_child(
-            Text::new_inline(label.to_string(), appearance.ui_font_family(), 10.)
-                .with_color(sub_text_color.into())
-                .finish(),
-        )
-        .finish()
 }
 
 /// Resolves the rendered color mode for a tab's panes from the tab's own color,

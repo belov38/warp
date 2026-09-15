@@ -24,7 +24,7 @@ use crate::auth::UserUid;
 use crate::cloud_object::{CloudObjectPermissions, Owner};
 use crate::code::editor_management::CodeSource;
 use crate::notebooks::{CloudNotebook, CloudNotebookModel};
-use crate::pane_group::pane::PaneLink;
+use crate::pane_group::pane::{MAX_PANE_LINKS, PaneLink};
 use crate::persistence::model::ObjectPermissions;
 use crate::persistence::{
     BlockCompleted, ModelEvent, PersistedDataScope, PersistenceScope, StartedCommandMetadata,
@@ -721,6 +721,103 @@ fn test_sqlite_reads_invalid_custom_links_json_as_empty() {
         panic!("Expected terminal pane leaf");
     };
     assert!(custom_links.is_empty());
+}
+
+#[test]
+fn test_sqlite_drops_invalid_and_excess_restored_custom_links() {
+    use diesel::prelude::*;
+
+    let tempdir = tempfile::tempdir().expect("tempdir should be created");
+    let database_path = tempdir.path().join("warp.sqlite");
+    let mut conn = setup_database(&database_path).expect("database should initialize");
+
+    // Save a leaf with no links, then hand-write the column with a mix of a
+    // dangerous scheme and more valid links than MAX_PANE_LINKS allows.
+    let app_state = AppState {
+        windows: vec![WindowSnapshot {
+            tabs: vec![TabSnapshot {
+                custom_title: None,
+                root: PaneNodeSnapshot::Leaf(LeafSnapshot {
+                    is_focused: true,
+                    custom_vertical_tabs_title: None,
+                    custom_links: Vec::new(),
+                    contents: LeafContents::Terminal(TerminalPaneSnapshot {
+                        uuid: vec![42],
+                        cwd: Some("/tmp".to_string()),
+                        shell_launch_data: Some(ShellLaunchData::Executable {
+                            executable_path: PathBuf::from("/bin/zsh"),
+                            shell_type: crate::terminal::shell::ShellType::Zsh,
+                        }),
+                        is_active: true,
+                        is_read_only: false,
+                        input_config: None,
+                        llm_model_override: None,
+                        active_profile_id: None,
+                        conversation_ids_to_restore: vec![],
+                        active_conversation_id: None,
+                    }),
+                }),
+                default_directory_color: None,
+                selected_color: SelectedTabColor::default(),
+                left_panel: None,
+                right_panel: None,
+                group_id: None,
+                pinned: false,
+            }],
+            active_tab_index: 0,
+            team_uid: None,
+            bounds: None,
+            fullscreen_state: Default::default(),
+            quake_mode: false,
+            universal_search_width: None,
+            warp_ai_width: None,
+            voltron_width: None,
+            warp_drive_index_width: None,
+            left_panel_open: false,
+            vertical_tabs_panel_open: false,
+            left_panel_width: None,
+            right_panel_width: None,
+            agent_management_filters: None,
+            tab_groups: vec![],
+        }],
+        active_window_index: Some(0),
+        block_lists: Default::default(),
+        running_mcp_servers: Default::default(),
+    };
+    save_app_state(&mut conn, &app_state).expect("app state should save");
+
+    let malicious_json = serde_json::json!([
+        { "label": "a", "url": "https://a.b/1" },
+        { "label": "bad", "url": "javascript:alert(1)" },
+        { "label": "b", "url": "https://a.b/2" },
+        { "label": "c", "url": "https://a.b/3" },
+        { "label": "d", "url": "https://a.b/4" },
+    ])
+    .to_string();
+    diesel::sql_query(format!(
+        "UPDATE pane_leaves SET custom_links = '{malicious_json}'"
+    ))
+    .execute(&mut conn)
+    .expect("corrupting the column should work");
+
+    let restored = read_sqlite_data(&mut conn, None, PersistedDataScope::Full)
+        .expect("app state should load despite an invalid link")
+        .app_state
+        .expect("app state should be present");
+    let PaneNodeSnapshot::Leaf(LeafSnapshot { custom_links, .. }) =
+        &restored.windows[0].tabs[0].root
+    else {
+        panic!("Expected terminal pane leaf");
+    };
+    assert_eq!(custom_links.len(), MAX_PANE_LINKS);
+    assert_eq!(
+        custom_links,
+        &vec![
+            PaneLink::validate("a", "https://a.b/1").expect("valid link"),
+            PaneLink::validate("b", "https://a.b/2").expect("valid link"),
+            PaneLink::validate("c", "https://a.b/3").expect("valid link"),
+        ]
+    );
 }
 
 #[test]

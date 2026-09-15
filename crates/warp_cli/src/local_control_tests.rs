@@ -319,6 +319,37 @@ fn pane_links_remove_requires_label() {
 }
 
 #[test]
+fn links_set_rejects_empty_label_or_url() {
+    assert!(
+        ControlArgs::try_parse_from([
+            "warpctrl",
+            "tab",
+            "links",
+            "set",
+            "--label",
+            "",
+            "--url",
+            "https://a.b",
+        ])
+        .is_err()
+    );
+    assert!(
+        ControlArgs::try_parse_from([
+            "warpctrl", "tab", "links", "set", "--label", "x", "--url", "",
+        ])
+        .is_err()
+    );
+}
+
+#[test]
+fn links_remove_rejects_empty_label() {
+    assert!(
+        ControlArgs::try_parse_from(["warpctrl", "pane", "links", "remove", "--label", ""])
+            .is_err()
+    );
+}
+
+#[test]
 fn links_set_requires_both_flags() {
     assert!(
         ControlArgs::try_parse_from(["warpctrl", "tab", "links", "set", "--label", "x"]).is_err()

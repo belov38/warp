@@ -23,6 +23,7 @@ pub enum PaneLinkError {
     LabelHasControlCharacters,
     UrlTooLong { max: usize },
     UrlNotParseable,
+    UrlHasControlCharacters,
     UrlSchemeNotAllowed { scheme: String },
     TooManyLinks { max: usize },
     NoSuchLabel { label: String },
@@ -38,6 +39,9 @@ impl Display for PaneLinkError {
             }
             Self::UrlTooLong { max } => write!(f, "url is longer than {max} characters"),
             Self::UrlNotParseable => write!(f, "url must be an absolute http(s) URL"),
+            Self::UrlHasControlCharacters => {
+                write!(f, "url cannot contain control characters")
+            }
             Self::UrlSchemeNotAllowed { scheme } => {
                 write!(
                     f,
@@ -71,6 +75,9 @@ impl PaneLink {
                 max: MAX_PANE_LINK_URL_CHARS,
             });
         }
+        if url.chars().any(char::is_control) {
+            return Err(PaneLinkError::UrlHasControlCharacters);
+        }
         let parsed = Url::parse(url).map_err(|_| PaneLinkError::UrlNotParseable)?;
         match parsed.scheme() {
             "http" | "https" => {}
@@ -83,7 +90,7 @@ impl PaneLink {
 
         Ok(PaneLink {
             label: label.to_owned(),
-            url: url.to_owned(),
+            url: parsed.as_str().to_owned(),
         })
     }
 }

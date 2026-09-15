@@ -211,7 +211,7 @@ Command names are noun-oriented and discoverable. Examples:
 - `--window <active|opaque-id>`, `--window-index <n>`, and `--window-title <title>` select a window.
 - `--tab <active|opaque-id>`, `--tab-index <n>`, and `--tab-title <title>` select a tab.
 - `--pane <active|opaque-id>` and `--pane-index <n>` select a pane.
-- `--session <active|opaque-id>` selects a session.
+- `--session <active|opaque-id>` selects a session. The `*.links.*` actions additionally accept the numeric shell `WARP_SESSION_ID` for this flag.
 - `--output-format <pretty|json|ndjson|text>` controls output shape.
 Within a selector family, specifying more than one form is invalid. Handlers reject selector forms that they cannot resolve safely.
 ### Wire protocol
