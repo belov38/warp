@@ -8105,6 +8105,13 @@ impl TerminalView {
             .and_then(BlockMetadata::session_id)
     }
 
+    /// Test hook: pretend the active block belongs to `session_id`, so
+    /// handler tests can exercise `--session` resolution without a shell.
+    #[cfg(test)]
+    pub(crate) fn set_active_block_session_id_for_tests(&mut self, session_id: SessionId) {
+        self.active_block_metadata = Some(BlockMetadata::new(Some(session_id), None));
+    }
+
     pub fn active_session_shell_type<C: ModelAsRef>(&self, ctx: &C) -> Option<ShellType> {
         self.active_block_session_id()
             .and_then(|id| self.sessions.as_ref(ctx).get(id))
