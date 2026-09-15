@@ -51,7 +51,7 @@ use crate::context_chips::github_pr_display_text_from_url;
 use crate::drive::DriveObjectType;
 use crate::drive::cloud_object_styling::warp_drive_icon_color;
 use crate::editor::EditorView;
-use crate::pane_group::pane::{IPaneType, PaneLink};
+use crate::pane_group::pane::{IPaneType, MAX_PANE_LINKS, PaneLink};
 use crate::pane_group::{
     CodePane, NotebookPane, PaneGroup, PaneId, TabBarHoverIndex, TerminalPane, WorkflowPane,
 };
@@ -956,6 +956,9 @@ struct VerticalTabsSummaryBranchEntry {
     /// Full PR URL backing the chip, used to open the PR in the browser when the
     /// chip is clicked. Paired with `pull_request_label` (the display text).
     pull_request_url: Option<String>,
+    /// Union of the custom links of every pane that contributed this branch line,
+    /// deduplicated by label with the first occurrence winning.
+    links: Vec<PaneLink>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -972,6 +975,9 @@ struct VerticalTabsSummaryData {
     working_directories: Vec<String>,
     branch_entries: Vec<VerticalTabsSummaryBranchEntry>,
     has_unread_activity: bool,
+    /// Links of panes that have no branch line to hang them on. Rendered as a
+    /// chips-only metadata line when the tab has no branch lines at all.
+    unattached_links: Vec<PaneLink>,
 }
 
 impl TabGroupColorMode {
@@ -1099,6 +1105,16 @@ fn summary_conversation_status_for_terminal(
         .flatten()
 }
 
+/// Unions link lists for Summary mode: labels already present keep their
+/// position and URL (first occurrence wins), new labels append in order.
+fn merge_links_by_label(into: &mut Vec<PaneLink>, from: &[PaneLink]) {
+    for link in from {
+        if !into.iter().any(|existing| existing.label == link.label) {
+            into.push(link.clone());
+        }
+    }
+}
+
 fn coalesce_summary_branch_entries(
     entries: Vec<VerticalTabsSummaryBranchEntry>,
 ) -> Vec<VerticalTabsSummaryBranchEntry> {
@@ -1117,6 +1133,7 @@ fn coalesce_summary_branch_entries(
             if existing.pull_request_url.is_none() {
                 existing.pull_request_url = entry.pull_request_url;
             }
+            merge_links_by_label(&mut existing.links, &entry.links);
         } else {
             indices.insert(key, coalesced.len());
             coalesced.push(entry);
@@ -3783,6 +3800,7 @@ fn build_vertical_tabs_summary_data(
     let mut working_directories = Vec::new();
     let mut working_directory_seen = HashMap::new();
     let mut branch_entries = Vec::new();
+    let mut unattached_links: Vec<PaneLink> = Vec::new();
     let mut has_unread_activity = false;
 
     for pane_id in visible_pane_ids {
@@ -3839,6 +3857,9 @@ fn build_vertical_tabs_summary_data(
                     );
                 }
 
+                // A pane's links ride on its branch line; a pane with no branch
+                // contributes them to the tab-level chips-only line instead.
+                let pane_links = pane_configuration.custom_links().to_vec();
                 if let (Some(repo_path), Some(branch_name)) = (
                     terminal_view
                         .current_local_repo_path()
@@ -3857,7 +3878,10 @@ fn build_vertical_tabs_summary_data(
                             .map(terminal_pull_request_badge_label)
                             .and_then(|label| normalize_summary_text(&label)),
                         pull_request_url,
+                        links: pane_links,
                     });
+                } else {
+                    merge_links_by_label(&mut unattached_links, &pane_links);
                 }
             }
             TypedPane::Code(_) => {
@@ -3901,6 +3925,7 @@ fn build_vertical_tabs_summary_data(
         working_directories,
         branch_entries: coalesce_summary_branch_entries(branch_entries),
         has_unread_activity,
+        unattached_links,
     }
 }
 
@@ -4766,6 +4791,9 @@ fn render_summary_tab_item(
 
     let appearance = Appearance::as_ref(app);
     let theme = appearance.theme();
+    // Cloned up front: `props` is moved into `render_pane_row_element` at the end,
+    // and the handles are shared through an `Rc` so the clone stays in sync.
+    let badge_mouse_states = props.badge_mouse_states.clone();
     let main_text_color = theme.main_text_color(theme.background());
     let sub_text_color = theme.sub_text_color(theme.background());
     let icon = summary_pane_kind_icons
@@ -4915,8 +4943,11 @@ fn render_summary_tab_item(
             Container::new(render_summary_branch_line(
                 branch_entry,
                 pr_badge_mouse_states.get(idx).cloned(),
+                &badge_mouse_states,
+                idx,
                 pr_chip_entrypoint,
                 appearance,
+                app,
             ))
             .with_margin_top(REGION_GAP)
             .finish(),
@@ -4930,6 +4961,24 @@ fn render_summary_tab_item(
             Container::new(render_summary_overflow_line(
                 hidden_branch_count,
                 sub_text_color,
+                appearance,
+            ))
+            .with_margin_top(REGION_GAP)
+            .finish(),
+        );
+    }
+
+    // A tab with no branch lines still shows its panes' links, on a line of its own.
+    // The index base sits past the branch lines so the handles never collide.
+    if *TabSettings::as_ref(app).vertical_tabs_show_links.value()
+        && summary.branch_entries.is_empty()
+        && !summary.unattached_links.is_empty()
+    {
+        text_col.add_child(
+            Container::new(render_summary_links_line(
+                &summary.unattached_links,
+                &badge_mouse_states,
+                MAX_VISIBLE_BRANCH_LINES,
                 appearance,
             ))
             .with_margin_top(REGION_GAP)
@@ -5231,8 +5280,11 @@ fn summary_pane_kind_icon(
 fn render_summary_branch_line(
     entry: &VerticalTabsSummaryBranchEntry,
     pr_badge_mouse_state: Option<MouseStateHandle>,
+    link_mouse_states: &PaneRowBadgeMouseStates,
+    line_index: usize,
     pr_chip_entrypoint: VerticalTabsChipEntrypoint,
     appearance: &Appearance,
+    app: &AppContext,
 ) -> Box<dyn Element> {
     let theme = appearance.theme();
     let sub_text_color = theme.sub_text_color(theme.background());
@@ -5286,6 +5338,18 @@ fn render_summary_branch_line(
             }
         }
     }
+    if *TabSettings::as_ref(app).vertical_tabs_show_links.value() {
+        for (link_index, link) in entry.links.iter().enumerate() {
+            right_badges.add_child(render_terminal_link_badge(
+                link,
+                link_mouse_states
+                    .link_mouse_state(summary_link_mouse_state_index(line_index, link_index)),
+                true,
+                appearance,
+            ));
+            has_right_badges = true;
+        }
+    }
     if has_right_badges {
         row.add_child(
             Container::new(right_badges.finish())
@@ -5294,6 +5358,42 @@ fn render_summary_branch_line(
         );
     }
 
+    ConstrainedBox::new(row.finish())
+        .with_height(METADATA_ROW_HEIGHT)
+        .finish()
+}
+
+/// Flattens a (metadata line, chip) pair into an index in the pane's shared link
+/// mouse-state vector so every Summary chip keeps its own hover handle.
+fn summary_link_mouse_state_index(line_index: usize, link_index: usize) -> usize {
+    line_index * MAX_PANE_LINKS + link_index
+}
+
+/// Metadata line that carries only link chips, used by a tab whose panes have
+/// links but no branch line to hang them on.
+fn render_summary_links_line(
+    links: &[PaneLink],
+    link_mouse_states: &PaneRowBadgeMouseStates,
+    line_index: usize,
+    appearance: &Appearance,
+) -> Box<dyn Element> {
+    let mut right_badges = Flex::row()
+        .with_cross_axis_alignment(CrossAxisAlignment::Center)
+        .with_spacing(4.);
+    for (link_index, link) in links.iter().enumerate() {
+        right_badges.add_child(render_terminal_link_badge(
+            link,
+            link_mouse_states
+                .link_mouse_state(summary_link_mouse_state_index(line_index, link_index)),
+            true,
+            appearance,
+        ));
+    }
+    let row = Flex::row()
+        .with_main_axis_size(MainAxisSize::Max)
+        .with_main_axis_alignment(MainAxisAlignment::End)
+        .with_cross_axis_alignment(CrossAxisAlignment::Center)
+        .with_child(right_badges.finish());
     ConstrainedBox::new(row.finish())
         .with_height(METADATA_ROW_HEIGHT)
         .finish()

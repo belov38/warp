@@ -12,20 +12,20 @@ use super::{
     VerticalTabsDetailTargetKind, VerticalTabsSummaryBranchEntry, VerticalTabsSummaryData,
     VerticalTabsSummaryPrimaryLabel, branch_label_display, coalesce_summary_branch_entries,
     code_detail_kind_label, compact_branch_subtitle_display, detail_sidecar_width_and_bounds,
-    detail_target_for_hovered_row, link_chip_display_label, non_terminal_search_text_fragments,
-    pane_ids_for_display_granularity, pane_search_text_fragments, preferred_agent_tab_titles,
-    push_normalized_unique_summary_label, search_fragments_contain_query,
-    select_summary_pane_kind_icons, should_keep_detail_sidecar_visible_for_mouse_position,
-    should_show_tab_group_header, shows_synced_inputs_indicator,
-    sort_summary_primary_labels_status_first, summary_overflow_count,
-    summary_search_text_fragments, terminal_kind_badge_label, terminal_primary_line_data,
-    terminal_pull_request_badge_label, terminal_search_text_fragments,
+    detail_target_for_hovered_row, link_chip_display_label, merge_links_by_label,
+    non_terminal_search_text_fragments, pane_ids_for_display_granularity,
+    pane_search_text_fragments, preferred_agent_tab_titles, push_normalized_unique_summary_label,
+    search_fragments_contain_query, select_summary_pane_kind_icons,
+    should_keep_detail_sidecar_visible_for_mouse_position, should_show_tab_group_header,
+    shows_synced_inputs_indicator, sort_summary_primary_labels_status_first,
+    summary_overflow_count, summary_search_text_fragments, terminal_kind_badge_label,
+    terminal_primary_line_data, terminal_pull_request_badge_label, terminal_search_text_fragments,
     terminal_title_fallback_font, uses_outer_group_container, visible_pane_ids_for_detail_target,
     vtab_diff_stats_text,
 };
 use crate::ai::agent::conversation::ConversationStatus;
 use crate::context_chips::display_chip::GitLineChanges;
-use crate::pane_group::pane::IPaneType;
+use crate::pane_group::pane::{IPaneType, PaneLink};
 use crate::pane_group::{PaneId, TerminalPaneId};
 use crate::safe_triangle::SafeTriangle;
 use crate::tab::{ShortcutModifierKind, reveals_shortcut_hints};
@@ -976,6 +976,7 @@ fn coalesce_summary_branch_entries_groups_by_repo_and_branch() {
             diff_stats: None,
             pull_request_label: None,
             pull_request_url: None,
+            links: Vec::new(),
         },
         VerticalTabsSummaryBranchEntry {
             repo_path: repo_a.clone(),
@@ -987,6 +988,7 @@ fn coalesce_summary_branch_entries_groups_by_repo_and_branch() {
             }),
             pull_request_label: Some("#123".to_string()),
             pull_request_url: Some("https://github.com/acme/repo-a/pull/123".to_string()),
+            links: Vec::new(),
         },
         VerticalTabsSummaryBranchEntry {
             repo_path: repo_b.clone(),
@@ -998,6 +1000,7 @@ fn coalesce_summary_branch_entries_groups_by_repo_and_branch() {
             }),
             pull_request_label: Some("#456".to_string()),
             pull_request_url: Some("https://github.com/acme/repo-b/pull/456".to_string()),
+            links: Vec::new(),
         },
     ];
 
@@ -1014,6 +1017,7 @@ fn coalesce_summary_branch_entries_groups_by_repo_and_branch() {
                 }),
                 pull_request_label: Some("#123".to_string()),
                 pull_request_url: Some("https://github.com/acme/repo-a/pull/123".to_string()),
+                links: Vec::new(),
             },
             VerticalTabsSummaryBranchEntry {
                 repo_path: repo_b,
@@ -1025,6 +1029,7 @@ fn coalesce_summary_branch_entries_groups_by_repo_and_branch() {
                 }),
                 pull_request_label: Some("#456".to_string()),
                 pull_request_url: Some("https://github.com/acme/repo-b/pull/456".to_string()),
+                links: Vec::new(),
             },
         ]
     );
@@ -1206,6 +1211,7 @@ fn summary_search_fragments_include_hidden_overflow_values() {
                 }),
                 pull_request_label: Some("#123".to_string()),
                 pull_request_url: Some("https://github.com/acme/repo-a/pull/123".to_string()),
+                links: Vec::new(),
             },
             VerticalTabsSummaryBranchEntry {
                 repo_path: PathBuf::from("/tmp/repo-b"),
@@ -1213,6 +1219,7 @@ fn summary_search_fragments_include_hidden_overflow_values() {
                 diff_stats: None,
                 pull_request_label: None,
                 pull_request_url: None,
+                links: Vec::new(),
             },
             VerticalTabsSummaryBranchEntry {
                 repo_path: PathBuf::from("/tmp/repo-c"),
@@ -1220,6 +1227,7 @@ fn summary_search_fragments_include_hidden_overflow_values() {
                 diff_stats: None,
                 pull_request_label: None,
                 pull_request_url: None,
+                links: Vec::new(),
             },
             VerticalTabsSummaryBranchEntry {
                 repo_path: PathBuf::from("/tmp/repo-d"),
@@ -1227,9 +1235,11 @@ fn summary_search_fragments_include_hidden_overflow_values() {
                 diff_stats: None,
                 pull_request_label: Some("#789".to_string()),
                 pull_request_url: Some("https://github.com/acme/repo-d/pull/789".to_string()),
+                links: Vec::new(),
             },
         ],
         has_unread_activity: false,
+        unattached_links: Vec::new(),
     };
 
     let fragments = summary_search_text_fragments(&summary, Some("Custom tab"));
@@ -1262,4 +1272,55 @@ fn link_chip_display_label_counts_chars_not_bytes() {
     let shown = link_chip_display_label(&label);
     assert_eq!(shown.chars().count(), 17);
     assert!(shown.ends_with('…'));
+}
+
+fn link(label: &str) -> PaneLink {
+    PaneLink {
+        label: label.to_owned(),
+        url: format!("https://{label}/"),
+    }
+}
+
+#[test]
+fn merge_links_by_label_keeps_first_occurrence_and_order() {
+    let mut into = vec![link("a"), link("b")];
+    merge_links_by_label(&mut into, &[link("b"), link("c"), link("a")]);
+    assert_eq!(
+        into.iter().map(|l| l.label.as_str()).collect::<Vec<_>>(),
+        ["a", "b", "c"]
+    );
+    assert_eq!(into[1].url, "https://b/");
+}
+
+#[test]
+fn coalesce_summary_branch_entries_unions_links_by_label() {
+    let repo = PathBuf::from("/repo");
+    let entries = vec![
+        VerticalTabsSummaryBranchEntry {
+            repo_path: repo.clone(),
+            branch_name: "main".to_owned(),
+            diff_stats: None,
+            pull_request_label: None,
+            pull_request_url: None,
+            links: vec![link("a")],
+        },
+        VerticalTabsSummaryBranchEntry {
+            repo_path: repo,
+            branch_name: "main".to_owned(),
+            diff_stats: None,
+            pull_request_label: None,
+            pull_request_url: None,
+            links: vec![link("a"), link("b")],
+        },
+    ];
+    let coalesced = coalesce_summary_branch_entries(entries);
+    assert_eq!(coalesced.len(), 1);
+    assert_eq!(
+        coalesced[0]
+            .links
+            .iter()
+            .map(|l| l.label.as_str())
+            .collect::<Vec<_>>(),
+        ["a", "b"]
+    );
 }
