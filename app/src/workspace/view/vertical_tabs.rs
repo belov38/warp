@@ -51,7 +51,7 @@ use crate::context_chips::github_pr_display_text_from_url;
 use crate::drive::DriveObjectType;
 use crate::drive::cloud_object_styling::warp_drive_icon_color;
 use crate::editor::EditorView;
-use crate::pane_group::pane::{IPaneType, MAX_PANE_LINKS, PaneLink};
+use crate::pane_group::pane::{IPaneType, PaneLink};
 use crate::pane_group::{
     CodePane, NotebookPane, PaneGroup, PaneId, TabBarHoverIndex, TerminalPane, WorkflowPane,
 };
@@ -4933,6 +4933,10 @@ fn render_summary_tab_item(
 
     // Branch region. Each branch line gets the existing 4px top margin from APP-3875.
     let pr_chip_entrypoint = chip_entrypoint_for_granularity(props.display_granularity);
+    // Link chip hover handles are handed out by a running counter rather than a
+    // fixed per-line stride, so a branch line whose union exceeds one pane's link
+    // cap cannot reach into the next line's handles.
+    let mut next_link_handle = 0usize;
     for (idx, branch_entry) in summary
         .branch_entries
         .iter()
@@ -4944,7 +4948,7 @@ fn render_summary_tab_item(
                 branch_entry,
                 pr_badge_mouse_states.get(idx).cloned(),
                 &badge_mouse_states,
-                idx,
+                next_link_handle,
                 pr_chip_entrypoint,
                 appearance,
                 app,
@@ -4952,6 +4956,7 @@ fn render_summary_tab_item(
             .with_margin_top(REGION_GAP)
             .finish(),
         );
+        next_link_handle += branch_entry.links.len();
     }
 
     let hidden_branch_count =
@@ -4969,7 +4974,6 @@ fn render_summary_tab_item(
     }
 
     // A tab with no branch lines still shows its panes' links, on a line of its own.
-    // The index base sits past the branch lines so the handles never collide.
     if *TabSettings::as_ref(app).vertical_tabs_show_links.value()
         && summary.branch_entries.is_empty()
         && !summary.unattached_links.is_empty()
@@ -4978,7 +4982,7 @@ fn render_summary_tab_item(
             Container::new(render_summary_links_line(
                 &summary.unattached_links,
                 &badge_mouse_states,
-                MAX_VISIBLE_BRANCH_LINES,
+                next_link_handle,
                 appearance,
             ))
             .with_margin_top(REGION_GAP)
@@ -5281,7 +5285,7 @@ fn render_summary_branch_line(
     entry: &VerticalTabsSummaryBranchEntry,
     pr_badge_mouse_state: Option<MouseStateHandle>,
     link_mouse_states: &PaneRowBadgeMouseStates,
-    line_index: usize,
+    first_link_handle: usize,
     pr_chip_entrypoint: VerticalTabsChipEntrypoint,
     appearance: &Appearance,
     app: &AppContext,
@@ -5342,8 +5346,7 @@ fn render_summary_branch_line(
         for (link_index, link) in entry.links.iter().enumerate() {
             right_badges.add_child(render_terminal_link_badge(
                 link,
-                link_mouse_states
-                    .link_mouse_state(summary_link_mouse_state_index(line_index, link_index)),
+                link_mouse_states.link_mouse_state(first_link_handle + link_index),
                 true,
                 appearance,
             ));
@@ -5363,18 +5366,12 @@ fn render_summary_branch_line(
         .finish()
 }
 
-/// Flattens a (metadata line, chip) pair into an index in the pane's shared link
-/// mouse-state vector so every Summary chip keeps its own hover handle.
-fn summary_link_mouse_state_index(line_index: usize, link_index: usize) -> usize {
-    line_index * MAX_PANE_LINKS + link_index
-}
-
 /// Metadata line that carries only link chips, used by a tab whose panes have
 /// links but no branch line to hang them on.
 fn render_summary_links_line(
     links: &[PaneLink],
     link_mouse_states: &PaneRowBadgeMouseStates,
-    line_index: usize,
+    first_link_handle: usize,
     appearance: &Appearance,
 ) -> Box<dyn Element> {
     let mut right_badges = Flex::row()
@@ -5383,8 +5380,7 @@ fn render_summary_links_line(
     for (link_index, link) in links.iter().enumerate() {
         right_badges.add_child(render_terminal_link_badge(
             link,
-            link_mouse_states
-                .link_mouse_state(summary_link_mouse_state_index(line_index, link_index)),
+            link_mouse_states.link_mouse_state(first_link_handle + link_index),
             true,
             appearance,
         ));
