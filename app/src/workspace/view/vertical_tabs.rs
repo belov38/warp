@@ -25,8 +25,8 @@ use warpui::elements::{
     Flex, Hoverable, MainAxisAlignment, MainAxisSize, MouseStateHandle, OffsetPositioning, Padding,
     ParentAnchor, ParentElement, ParentOffsetBounds, PositionedElementAnchor,
     PositionedElementOffsetBounds, Radius, Resizable, ResizableStateHandle, SavePosition,
-    ScrollTarget, ScrollToPositionMode, ScrollbarWidth, Shrinkable, Stack, Text,
-    resizable_state_handle,
+    ScrollTarget, ScrollToPositionMode, ScrollbarWidth, Shrinkable, SizeConstraintCondition,
+    SizeConstraintSwitch, Stack, Text, resizable_state_handle,
 };
 use warpui::fonts::{Properties, Weight};
 use warpui::platform::Cursor;
@@ -4660,6 +4660,33 @@ fn compact_branch_subtitle_display(
         })
 }
 
+/// Below this width the branch cell cannot show its icon plus a glyph, so it
+/// is hidden instead of painting the fixed-width icon over the chips to its
+/// right: a `Flex` reports a smaller size than it paints when squeezed under
+/// its fixed content, and nothing clips it.
+const METADATA_BRANCH_CELL_MIN_WIDTH: f32 = 24.;
+
+/// The shrinkable branch cell of a metadata row: yields to the chips on the
+/// right and disappears entirely once it cannot fit its icon.
+fn render_shrinkable_branch_cell(
+    branch: &str,
+    text_color: WarpThemeFill,
+    appearance: &Appearance,
+) -> Box<dyn Element> {
+    Shrinkable::new(
+        1.,
+        SizeConstraintSwitch::new(
+            render_git_branch_text(branch, text_color, 10., appearance),
+            vec![(
+                SizeConstraintCondition::WidthLessThan(METADATA_BRANCH_CELL_MIN_WIDTH),
+                Empty::new().finish(),
+            )],
+        )
+        .finish(),
+    )
+    .finish()
+}
+
 fn render_git_branch_text(
     branch: &str,
     text_color: WarpThemeFill,
@@ -5338,13 +5365,11 @@ fn render_summary_branch_line(
         .with_main_axis_size(MainAxisSize::Max)
         .with_main_axis_alignment(MainAxisAlignment::SpaceBetween)
         .with_cross_axis_alignment(CrossAxisAlignment::Center)
-        .with_child(
-            Shrinkable::new(
-                1.,
-                render_git_branch_text(&entry.branch_name, sub_text_color, 10., appearance),
-            )
-            .finish(),
-        );
+        .with_child(render_shrinkable_branch_cell(
+            &entry.branch_name,
+            sub_text_color,
+            appearance,
+        ));
 
     let mut right_badges = Flex::row()
         .with_cross_axis_alignment(CrossAxisAlignment::Center)
@@ -5548,11 +5573,7 @@ fn render_terminal_metadata_line(
     // Left: Shrinkable so it clips before reaching the right-side badges.
     let left_element: Box<dyn Element> = match left_content {
         MetadataLeftContent::GitBranch(Some(branch)) if !branch.trim().is_empty() => {
-            Shrinkable::new(
-                1.,
-                render_git_branch_text(&branch, sub_text_color, 10., appearance),
-            )
-            .finish()
+            render_shrinkable_branch_cell(&branch, sub_text_color, appearance)
         }
         MetadataLeftContent::WorkingDirectory(wd) if !wd.trim().is_empty() => Shrinkable::new(
             1.,
