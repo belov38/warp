@@ -163,8 +163,50 @@ fn malformed_and_removed_action_names_are_not_deserialized() {
 }
 
 #[test]
-fn catalog_has_exactly_84_retained_actions() {
-    assert_eq!(ActionKind::ALL.len(), 84);
+fn catalog_has_exactly_90_retained_actions() {
+    assert_eq!(ActionKind::ALL.len(), 90);
+}
+
+#[test]
+fn link_params_round_trip_and_reject_unknown_fields() {
+    let set: LinkSetParams = serde_json::from_value(serde_json::json!({
+        "label": "DELI-1878",
+        "url": "https://linear.app/x"
+    }))
+    .expect("valid set params");
+    assert_eq!(set.label, "DELI-1878");
+    assert_eq!(set.url, "https://linear.app/x");
+    assert!(
+        serde_json::from_value::<LinkSetParams>(serde_json::json!({
+            "label": "a", "url": "https://a", "extra": 1
+        }))
+        .is_err()
+    );
+
+    let remove: LinkRemoveParams =
+        serde_json::from_value(serde_json::json!({ "label": "DELI-1878" }))
+            .expect("valid remove params");
+    assert_eq!(remove.label, "DELI-1878");
+    assert!(serde_json::from_value::<LinkRemoveParams>(serde_json::json!({})).is_err());
+}
+
+#[test]
+fn link_actions_have_stable_names_scopes_and_params() {
+    let cases = [
+        (ActionKind::TabLinksSet, "tab.links.set", TargetScope::Tab, ActionParameterSpec::LinkSet),
+        (ActionKind::TabLinksRemove, "tab.links.remove", TargetScope::Tab, ActionParameterSpec::LinkRemove),
+        (ActionKind::TabLinksClear, "tab.links.clear", TargetScope::Tab, ActionParameterSpec::None),
+        (ActionKind::PaneLinksSet, "pane.links.set", TargetScope::Pane, ActionParameterSpec::LinkSet),
+        (ActionKind::PaneLinksRemove, "pane.links.remove", TargetScope::Pane, ActionParameterSpec::LinkRemove),
+        (ActionKind::PaneLinksClear, "pane.links.clear", TargetScope::Pane, ActionParameterSpec::None),
+    ];
+    for (kind, name, scope, params) in cases {
+        let metadata = kind.metadata();
+        assert_eq!(kind.as_str(), name);
+        assert_eq!(metadata.target_scope, scope, "{name}");
+        assert_eq!(metadata.parameter_spec, params, "{name}");
+        assert_eq!(metadata.result_spec, ActionResultSpec::Acknowledgement, "{name}");
+    }
 }
 
 #[test]

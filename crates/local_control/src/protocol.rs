@@ -144,6 +144,21 @@ pub struct RenameParams {
     pub title: String,
 }
 
+/// Parameters for `tab.links.set` / `pane.links.set`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LinkSetParams {
+    pub label: String,
+    pub url: String,
+}
+
+/// Parameters for `tab.links.remove` / `pane.links.remove`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LinkRemoveParams {
+    pub label: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ResizeParams {

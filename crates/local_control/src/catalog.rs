@@ -43,6 +43,8 @@ pub enum ActionParameterSpec {
     FileOpen,
     Key,
     KeyValue,
+    LinkRemove,
+    LinkSet,
     Namespace,
     PageQuery,
     Query,
@@ -201,6 +203,9 @@ define_action_catalog! {
         TabResetName => { name: "tab.reset_name", status: Implemented, target: Tab, params: None, result: Acknowledgement },
         TabColorSet => { name: "tab.color.set", status: Implemented, target: Tab, params: ColorValue, result: Acknowledgement },
         TabColorClear => { name: "tab.color.clear", status: Implemented, target: Tab, params: None, result: Acknowledgement },
+        TabLinksSet => { name: "tab.links.set", status: Implemented, target: Tab, params: LinkSet, result: Acknowledgement },
+        TabLinksRemove => { name: "tab.links.remove", status: Implemented, target: Tab, params: LinkRemove, result: Acknowledgement },
+        TabLinksClear => { name: "tab.links.clear", status: Implemented, target: Tab, params: None, result: Acknowledgement },
     }
 
     pane {
@@ -215,6 +220,9 @@ define_action_catalog! {
         PaneClose => { name: "pane.close", status: Implemented, target: Pane, params: None, result: Acknowledgement },
         PaneRename => { name: "pane.rename", status: Implemented, target: Pane, params: Rename, result: Acknowledgement },
         PaneResetName => { name: "pane.reset_name", status: Implemented, target: Pane, params: None, result: Acknowledgement },
+        PaneLinksSet => { name: "pane.links.set", status: Implemented, target: Pane, params: LinkSet, result: Acknowledgement },
+        PaneLinksRemove => { name: "pane.links.remove", status: Implemented, target: Pane, params: LinkRemove, result: Acknowledgement },
+        PaneLinksClear => { name: "pane.links.clear", status: Implemented, target: Pane, params: None, result: Acknowledgement },
     }
 
     session {
