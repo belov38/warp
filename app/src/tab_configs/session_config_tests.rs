@@ -402,6 +402,7 @@ fn make_terminal_leaf(cwd: Option<&str>, is_focused: bool) -> PaneNodeSnapshot {
     PaneNodeSnapshot::Leaf(LeafSnapshot {
         is_focused,
         custom_vertical_tabs_title: None,
+        custom_links: Vec::new(),
         contents: LeafContents::Terminal(TerminalPaneSnapshot {
             uuid: vec![],
             cwd: cwd.map(|s| s.to_string()),
@@ -527,6 +528,7 @@ fn snapshot_non_terminal_leaf_replaced_with_terminal() {
     let notebook_leaf = PaneNodeSnapshot::Leaf(LeafSnapshot {
         is_focused: false,
         custom_vertical_tabs_title: None,
+        custom_links: Vec::new(),
         contents: LeafContents::Notebook(NotebookPaneSnapshot::CloudNotebook {
             notebook_id: None,
             settings: OpenWarpDriveObjectSettings::default(),
@@ -604,6 +606,7 @@ fn make_agent_leaf(cwd: Option<&str>, is_focused: bool) -> PaneNodeSnapshot {
     PaneNodeSnapshot::Leaf(LeafSnapshot {
         is_focused,
         custom_vertical_tabs_title: None,
+        custom_links: Vec::new(),
         contents: LeafContents::Terminal(TerminalPaneSnapshot {
             uuid: vec![],
             cwd: cwd.map(|s| s.to_string()),
@@ -623,6 +626,7 @@ fn make_cloud_leaf(is_focused: bool) -> PaneNodeSnapshot {
     PaneNodeSnapshot::Leaf(LeafSnapshot {
         is_focused,
         custom_vertical_tabs_title: None,
+        custom_links: Vec::new(),
         contents: LeafContents::AmbientAgent(AmbientAgentPaneSnapshot {
             uuid: vec![],
             task_id: None,

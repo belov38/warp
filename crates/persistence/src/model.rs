@@ -410,6 +410,7 @@ pub struct PaneLeaf {
     pub kind: String,
     pub is_focused: bool,
     pub custom_vertical_tabs_title: Option<String>,
+    pub custom_links: Option<String>,
 }
 
 #[derive(Identifiable, Queryable, Selectable)]
@@ -552,6 +553,7 @@ pub struct NewPane {
     pub kind: String,
     pub is_focused: bool,
     pub custom_vertical_tabs_title: Option<String>,
+    pub custom_links: Option<String>,
 }
 
 /// The [`pane_leaves::kind`] value for terminal panes.

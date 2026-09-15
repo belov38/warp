@@ -272,6 +272,7 @@ fn snapshot_to_flat_panes(
         PaneNodeSnapshot::Leaf(LeafSnapshot {
             is_focused,
             custom_vertical_tabs_title: _,
+            custom_links: _,
             contents,
         }) => {
             *counter += 1;

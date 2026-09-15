@@ -5,6 +5,7 @@ fn test_has_horizontal_split() {
     let single_leaf = PaneNodeSnapshot::Leaf(LeafSnapshot {
         is_focused: false,
         custom_vertical_tabs_title: None,
+        custom_links: Vec::new(),
         contents: LeafContents::Code(CodePaneSnapShot::Local {
             tabs: vec![CodePaneTabSnapshot {
                 path: Some(PathBuf::new()),
@@ -23,6 +24,7 @@ fn test_has_horizontal_split() {
                 PaneNodeSnapshot::Leaf(LeafSnapshot {
                     is_focused: false,
                     custom_vertical_tabs_title: None,
+                    custom_links: Vec::new(),
                     contents: LeafContents::Code(CodePaneSnapShot::Local {
                         tabs: vec![CodePaneTabSnapshot {
                             path: Some(PathBuf::new()),
@@ -37,6 +39,7 @@ fn test_has_horizontal_split() {
                 PaneNodeSnapshot::Leaf(LeafSnapshot {
                     is_focused: false,
                     custom_vertical_tabs_title: None,
+                    custom_links: Vec::new(),
                     contents: LeafContents::Code(CodePaneSnapShot::Local {
                         tabs: vec![CodePaneTabSnapshot {
                             path: Some(PathBuf::new()),

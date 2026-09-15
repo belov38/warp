@@ -3293,6 +3293,7 @@ fn add_get_started_tab(workspace: &mut Workspace, ctx: &mut ViewContext<Workspac
         PanesLayout::Snapshot(Box::new(PaneNodeSnapshot::Leaf(LeafSnapshot {
             is_focused: true,
             custom_vertical_tabs_title: None,
+            custom_links: Vec::new(),
             contents: LeafContents::GetStarted,
         }))),
         Arc::new(HashMap::<PaneUuid, Vec<SerializedBlockListItem>>::new()),

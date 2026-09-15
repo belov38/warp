@@ -303,6 +303,7 @@ diesel::table! {
         kind -> Text,
         is_focused -> Bool,
         custom_vertical_tabs_title -> Nullable<Text>,
+        custom_links -> Nullable<Text>,
     }
 }
 

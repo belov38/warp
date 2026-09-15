@@ -90,6 +90,7 @@ use crate::cloud_object::{CloudObject, ObjectIdType};
 use crate::code::editor_management::CodeSource;
 use crate::drive::OpenWarpDriveObjectSettings;
 use crate::notebooks::NotebookId;
+use crate::pane_group::pane::PaneLink;
 use crate::persistence::block_list::{
     get_all_restored_blocks, process_ai_queries_for_nld_history_match,
     process_ai_queries_for_uparrow_prompt, read_recent_ai_queries,
@@ -1229,6 +1230,9 @@ fn save_pane_state(
         kind: kind.into(),
         is_focused: snapshot.is_focused,
         custom_vertical_tabs_title: snapshot.custom_vertical_tabs_title.clone(),
+        custom_links: (!snapshot.custom_links.is_empty())
+            .then(|| serde_json::to_string(&snapshot.custom_links).ok())
+            .flatten(),
     };
 
     diesel::insert_into(schema::pane_leaves::dsl::pane_leaves)
@@ -2423,9 +2427,21 @@ fn read_node(conn: &mut SqliteConnection, node: model::PaneNode) -> Result<PaneN
                 other => bail!("Unrecognized pane kind: {other}"),
             };
 
+            let custom_links = pane
+                .custom_links
+                .as_deref()
+                .filter(|json| !json.trim().is_empty())
+                .map(|json| {
+                    serde_json::from_str::<Vec<PaneLink>>(json).unwrap_or_else(|err| {
+                        log::warn!("Ignoring unreadable pane_leaves.custom_links: {err}");
+                        Vec::new()
+                    })
+                })
+                .unwrap_or_default();
             Ok(PaneNodeSnapshot::Leaf(LeafSnapshot {
                 is_focused: pane.is_focused,
                 custom_vertical_tabs_title: pane.custom_vertical_tabs_title,
+                custom_links,
                 contents,
             }))
         }

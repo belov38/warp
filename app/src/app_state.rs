@@ -13,6 +13,7 @@ use crate::ai::ambient_agents::AmbientAgentTaskId;
 use crate::ai::blocklist::{InputConfig, SerializedBlockListItem};
 use crate::code::editor_management::CodeSource;
 use crate::drive::OpenWarpDriveObjectSettings;
+use crate::pane_group::pane::PaneLink;
 use crate::root_view::quake_mode_window_id;
 use crate::server::ids::{ServerId, SyncId};
 use crate::settings_view::SettingsSection;
@@ -130,6 +131,7 @@ pub struct BranchSnapshot {
 pub struct LeafSnapshot {
     pub is_focused: bool,
     pub custom_vertical_tabs_title: Option<String>,
+    pub custom_links: Vec<PaneLink>,
     pub contents: LeafContents,
 }
 

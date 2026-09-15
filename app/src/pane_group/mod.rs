@@ -1638,6 +1638,7 @@ impl PaneGroup {
         pending_ambient_restorations: &mut Vec<(AmbientAgentTaskId, PaneId)>,
     ) -> anyhow::Result<(PaneData, InitialFocus)> {
         let custom_vertical_tabs_title = leaf.custom_vertical_tabs_title.clone();
+        let custom_links = leaf.custom_links.clone();
         let result = match leaf.contents {
             LeafContents::AIDocument(_) => {
                 // Defer AI document pane restoration until after terminal panes are restored.
@@ -2070,6 +2071,17 @@ impl PaneGroup {
                 });
         }
 
+        if let (Ok((pane_data, _)), false) = (&result, custom_links.is_empty())
+            && let PaneNode::Leaf(pane_id) = &pane_data.root
+            && let Some(pane) = pane_contents.get(pane_id)
+        {
+            pane.as_pane()
+                .pane_configuration()
+                .update(ctx, |configuration, ctx| {
+                    configuration.replace_custom_links(custom_links.clone(), ctx);
+                });
+        }
+
         result
     }
 
@@ -2082,6 +2094,7 @@ impl PaneGroup {
     ) -> (PaneData, InitialFocus) {
         for (placeholder_id, leaf) in deferred_panes {
             let custom_vertical_tabs_title = leaf.custom_vertical_tabs_title.clone();
+            let custom_links = leaf.custom_links.clone();
             match leaf.contents {
                 LeafContents::AIDocument(aidocument_snapshot) => {
                     match aidocument_snapshot {
@@ -2135,6 +2148,15 @@ impl PaneGroup {
                                     ctx,
                                     |configuration, ctx| {
                                         configuration.set_custom_vertical_tabs_title(title, ctx);
+                                    },
+                                );
+                            }
+                            if !custom_links.is_empty() {
+                                pane.as_pane().pane_configuration().update(
+                                    ctx,
+                                    |configuration, ctx| {
+                                        configuration
+                                            .replace_custom_links(custom_links.clone(), ctx);
                                     },
                                 );
                             }
@@ -2224,19 +2246,26 @@ impl PaneGroup {
                 {
                     snapshot.is_active = true;
                 }
-                let custom_vertical_tabs_title =
-                    self.pane_contents.get(&snapshot_pane_id).and_then(|pane| {
-                        pane.as_pane()
-                            .pane_configuration()
-                            .as_ref(app)
-                            .custom_vertical_tabs_title()
-                            .map(str::to_owned)
-                    });
+                let (custom_vertical_tabs_title, custom_links) = self
+                    .pane_contents
+                    .get(&snapshot_pane_id)
+                    .map(|pane| {
+                        let configuration = pane.as_pane().pane_configuration();
+                        let configuration = configuration.as_ref(app);
+                        (
+                            configuration
+                                .custom_vertical_tabs_title()
+                                .map(str::to_owned),
+                            configuration.custom_links().to_vec(),
+                        )
+                    })
+                    .unwrap_or_default();
                 PaneNodeSnapshot::Leaf(LeafSnapshot {
                     // Focus is tracked against the visible leaf, not the
                     // substituted original.
                     is_focused: *pane_id == self.focused_pane_id(app),
                     custom_vertical_tabs_title,
+                    custom_links,
                     contents,
                 })
             }

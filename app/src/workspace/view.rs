@@ -8856,6 +8856,7 @@ impl Workspace {
         let panes_layout = PanesLayout::Snapshot(Box::new(PaneNodeSnapshot::Leaf(LeafSnapshot {
             is_focused: true,
             custom_vertical_tabs_title: None,
+            custom_links: Vec::new(),
             contents: LeafContents::Settings(SettingsPaneSnapshot::Local {
                 current_page: page.unwrap_or_default(),
                 search_query: search_query.map(|s| s.to_owned()),
@@ -12766,6 +12767,7 @@ impl Workspace {
             PanesLayout::Snapshot(Box::new(PaneNodeSnapshot::Leaf(LeafSnapshot {
                 is_focused: true,
                 custom_vertical_tabs_title: None,
+                custom_links: Vec::new(),
                 contents: LeafContents::GetStarted,
             }))),
             Arc::new(HashMap::new()),
@@ -13172,6 +13174,7 @@ impl Workspace {
         let panes_layout = PanesLayout::Snapshot(Box::new(PaneNodeSnapshot::Leaf(LeafSnapshot {
             is_focused: true,
             custom_vertical_tabs_title: None,
+            custom_links: Vec::new(),
             contents: LeafContents::Notebook(NotebookPaneSnapshot::CloudNotebook {
                 notebook_id: Some(notebook_id),
                 settings: settings.clone(),
@@ -13189,6 +13192,7 @@ impl Workspace {
         let panes_layout = PanesLayout::Snapshot(Box::new(PaneNodeSnapshot::Leaf(LeafSnapshot {
             is_focused: true,
             custom_vertical_tabs_title: None,
+            custom_links: Vec::new(),
             contents: LeafContents::Workflow(WorkflowPaneSnapshot::CloudWorkflow {
                 workflow_id: Some(workflow_id),
                 settings: settings.clone(),
@@ -13206,6 +13210,7 @@ impl Workspace {
         let panes_layout = PanesLayout::Snapshot(Box::new(PaneNodeSnapshot::Leaf(LeafSnapshot {
             is_focused: true,
             custom_vertical_tabs_title: None,
+            custom_links: Vec::new(),
             contents: LeafContents::Notebook(NotebookPaneSnapshot::LocalFileNotebook {
                 path: file_path,
             }),
