@@ -79,7 +79,7 @@ The Vertical Tabs card already shows a PR chip, but it only knows about GitHub p
 
 13. A link chip looks like the PR chip: the same pill background, corner radius, padding, and hover highlight, with a generic link icon in place of the GitHub icon and the label as text. The label displays at most 16 characters; longer labels are truncated with an ellipsis. The full label is never modified in storage.
 
-14. The metadata line keeps its fixed height. When the sidebar is too narrow for the branch text plus all chips, the branch (or working directory) text shrinks and clips first, exactly as it does today for the diff-stats and PR chips. Chips are never wrapped onto a second line.
+14. The metadata line keeps its fixed height. When the sidebar is too narrow for the branch text plus all chips, the branch (or working directory) text shrinks and clips first, exactly as it does today for the diff-stats and PR chips; once the branch cell is narrower than its icon it is hidden entirely rather than drawn under the chips. Chips are never wrapped onto a second line; chips that still do not fit are clipped at the card edge.
 
 15. Hovering a chip highlights it and shows the pointing-hand cursor. Clicking a chip opens the link's URL in the system browser via the same path the PR chip uses. The click does not focus or activate the pane and does not open any Warp panel.
 
