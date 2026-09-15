@@ -209,7 +209,9 @@ fn validate_rejects_url_whose_normalized_form_exceeds_the_cap() {
     assert!(raw.chars().count() < MAX_PANE_LINK_URL_CHARS);
     assert_eq!(
         PaneLink::validate("l", &raw).unwrap_err(),
-        PaneLinkError::UrlTooLong { max: MAX_PANE_LINK_URL_CHARS }
+        PaneLinkError::UrlTooLong {
+            max: MAX_PANE_LINK_URL_CHARS
+        }
     );
 }
 

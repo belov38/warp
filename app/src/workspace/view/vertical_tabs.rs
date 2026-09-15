@@ -1171,7 +1171,12 @@ fn summary_search_text_fragments(
         }
         fragments.extend(entry.links.iter().map(|link| link.label.clone()));
     }
-    fragments.extend(summary.unattached_links.iter().map(|link| link.label.clone()));
+    fragments.extend(
+        summary
+            .unattached_links
+            .iter()
+            .map(|link| link.label.clone()),
+    );
     fragments
 }
 
@@ -4042,7 +4047,10 @@ impl<'a> PaneProps<'a> {
             TypedPane::Terminal(terminal_pane) => terminal_pane_search_text_fragments(
                 terminal_pane,
                 self.display_title_override.as_deref(),
-                self.custom_links.iter().map(|link| link.label.clone()).collect(),
+                self.custom_links
+                    .iter()
+                    .map(|link| link.label.clone())
+                    .collect(),
                 app,
             ),
             TypedPane::Code(_)
@@ -4194,7 +4202,11 @@ fn terminal_search_text_fragments(
     if let Some(diff_stats) = diff_stats {
         fragments.push(vtab_diff_stats_text(&diff_stats));
     }
-    fragments.extend(link_labels.into_iter().filter(|label| !label.trim().is_empty()));
+    fragments.extend(
+        link_labels
+            .into_iter()
+            .filter(|label| !label.trim().is_empty()),
+    );
     fragments
 }
 
