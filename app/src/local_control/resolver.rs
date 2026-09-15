@@ -1,10 +1,10 @@
 //! Target resolution and parameter validation for retained local-control actions.
 use ::local_control::protocol::{
     ActionNameParams, ActionParameterSpec, BindingNameParams, BooleanValueParams, ColorValueParams,
-    DirectionParams, EmptyParams, FileOpenParams, KeyParams, KeyValueParams, NamespaceParams,
-    PageQueryParams, PaneTarget, QueryParams, RenameParams, ResizeParams, SessionTarget,
-    TabActivateParams, TabCloseParams, TabCreateParams, TabTarget, TargetSelector, TextParams,
-    ThemeNameParams, WindowTarget,
+    DirectionParams, EmptyParams, FileOpenParams, KeyParams, KeyValueParams, LinkRemoveParams,
+    LinkSetParams, NamespaceParams, PageQueryParams, PaneTarget, QueryParams, RenameParams,
+    ResizeParams, SessionTarget, TabActivateParams, TabCloseParams, TabCreateParams, TabTarget,
+    TargetSelector, TextParams, ThemeNameParams, WindowTarget,
 };
 use ::local_control::{ActionKind, ControlError, ErrorCode, TargetScope};
 use warpui::{AppContext, ModelContext, TypedActionView, ViewHandle, WindowId};
@@ -41,6 +41,8 @@ pub(crate) fn validate_action_params(action: &::local_control::Action) -> Result
         ActionParameterSpec::FileOpen => parse_params::<FileOpenParams>(action),
         ActionParameterSpec::Key => parse_params::<KeyParams>(action),
         ActionParameterSpec::KeyValue => parse_params::<KeyValueParams>(action),
+        ActionParameterSpec::LinkRemove => parse_params::<LinkRemoveParams>(action),
+        ActionParameterSpec::LinkSet => parse_params::<LinkSetParams>(action),
         ActionParameterSpec::Namespace => parse_params::<NamespaceParams>(action),
         ActionParameterSpec::PageQuery => parse_params::<PageQueryParams>(action),
         ActionParameterSpec::Query => parse_params::<QueryParams>(action),

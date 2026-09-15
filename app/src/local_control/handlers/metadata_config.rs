@@ -1,18 +1,24 @@
 //! Metadata/configuration mutation handlers for local-control actions.
+#[cfg(test)]
+#[path = "metadata_config_tests.rs"]
+mod tests;
 use std::str::FromStr as _;
 
 use ::local_control::protocol::{
-    BooleanValueParams, ColorValueParams, KeyParams, KeyValueParams, PaneTarget, RenameParams,
-    TabTarget, TargetSelector, ThemeNameParams, WindowTarget,
+    BooleanValueParams, ColorValueParams, KeyParams, KeyValueParams, LinkRemoveParams,
+    LinkSetParams, PaneTarget, RenameParams, SessionTarget, TabTarget, TargetSelector,
+    ThemeNameParams, WindowTarget,
 };
 use ::local_control::{ActionKind, ControlError, ErrorCode, InstanceId};
 use serde_json::json;
 use settings::Setting as _;
+use warp_core::SessionId;
 use warp_core::ui::theme::AnsiColorIdentifier;
 use warpui::{ModelContext, SingletonEntity as _, WindowId};
 
 use super::metadata::{
-    PaneEntry, TabEntry, WindowEntry, pane_entries_for_tabs, tab_entries_for_windows,
+    PaneEntry, TabEntry, WindowEntry, pane_entries_for_tabs,
+    select_tab_entries as select_tab_entries_across_windows, tab_entries_for_windows,
 };
 use super::settings_surfaces::{
     ALLOWLISTED_SETTING_KEYS, public_theme_name, rejected_setting_key, setting_summary_for_key,
@@ -22,6 +28,7 @@ use crate::local_control::LocalControlBridge;
 use crate::local_control::handlers::ack;
 use crate::local_control::resolver::{require_active_window_id_for_action, workspace_for_window};
 use crate::pane_group::PaneId;
+use crate::pane_group::pane::{PaneLink, PaneLinkError};
 use crate::settings::{AccessibilitySettings, FontSettings, InputSettings, ThemeSettings};
 use crate::tab::SelectedTabColor;
 use crate::themes::theme::{SelectedSystemThemes, ThemeKind};
@@ -128,6 +135,111 @@ pub(crate) fn pane_reset_name(
         entry.pane_id,
         entry.tab_id,
     ))
+}
+
+/// The kind of change a `*.links.*` action applies to a pane's link list.
+enum LinksMutation {
+    Set(PaneLink),
+    Remove(String),
+    Clear,
+}
+
+pub(crate) fn tab_links_set(
+    instance_id: &Option<InstanceId>,
+    target: &TargetSelector,
+    action: &::local_control::Action,
+    ctx: &mut ModelContext<LocalControlBridge>,
+) -> Result<serde_json::Value, ControlError> {
+    let link = link_set_params(action)?;
+    let entry = select_pane_entry_for_tab_links(target, ActionKind::TabLinksSet, ctx)?;
+    mutate_pane_links(
+        instance_id,
+        ActionKind::TabLinksSet,
+        &entry,
+        LinksMutation::Set(link),
+        ctx,
+    )
+}
+
+pub(crate) fn tab_links_remove(
+    instance_id: &Option<InstanceId>,
+    target: &TargetSelector,
+    action: &::local_control::Action,
+    ctx: &mut ModelContext<LocalControlBridge>,
+) -> Result<serde_json::Value, ControlError> {
+    let label = link_remove_params(action)?;
+    let entry = select_pane_entry_for_tab_links(target, ActionKind::TabLinksRemove, ctx)?;
+    mutate_pane_links(
+        instance_id,
+        ActionKind::TabLinksRemove,
+        &entry,
+        LinksMutation::Remove(label),
+        ctx,
+    )
+}
+
+pub(crate) fn tab_links_clear(
+    instance_id: &Option<InstanceId>,
+    target: &TargetSelector,
+    ctx: &mut ModelContext<LocalControlBridge>,
+) -> Result<serde_json::Value, ControlError> {
+    let entry = select_pane_entry_for_tab_links(target, ActionKind::TabLinksClear, ctx)?;
+    mutate_pane_links(
+        instance_id,
+        ActionKind::TabLinksClear,
+        &entry,
+        LinksMutation::Clear,
+        ctx,
+    )
+}
+
+pub(crate) fn pane_links_set(
+    instance_id: &Option<InstanceId>,
+    target: &TargetSelector,
+    action: &::local_control::Action,
+    ctx: &mut ModelContext<LocalControlBridge>,
+) -> Result<serde_json::Value, ControlError> {
+    let link = link_set_params(action)?;
+    let entry = select_pane_entry_for_links(target, ActionKind::PaneLinksSet, ctx)?;
+    mutate_pane_links(
+        instance_id,
+        ActionKind::PaneLinksSet,
+        &entry,
+        LinksMutation::Set(link),
+        ctx,
+    )
+}
+
+pub(crate) fn pane_links_remove(
+    instance_id: &Option<InstanceId>,
+    target: &TargetSelector,
+    action: &::local_control::Action,
+    ctx: &mut ModelContext<LocalControlBridge>,
+) -> Result<serde_json::Value, ControlError> {
+    let label = link_remove_params(action)?;
+    let entry = select_pane_entry_for_links(target, ActionKind::PaneLinksRemove, ctx)?;
+    mutate_pane_links(
+        instance_id,
+        ActionKind::PaneLinksRemove,
+        &entry,
+        LinksMutation::Remove(label),
+        ctx,
+    )
+}
+
+pub(crate) fn pane_links_clear(
+    instance_id: &Option<InstanceId>,
+    target: &TargetSelector,
+    ctx: &mut ModelContext<LocalControlBridge>,
+) -> Result<serde_json::Value, ControlError> {
+    let entry = select_pane_entry_for_links(target, ActionKind::PaneLinksClear, ctx)?;
+    mutate_pane_links(
+        instance_id,
+        ActionKind::PaneLinksClear,
+        &entry,
+        LinksMutation::Clear,
+        ctx,
+    )
 }
 
 pub(crate) fn theme_set(
@@ -344,6 +456,183 @@ fn select_single_pane_entry(
             format!("{} resolved multiple panes", action.as_str()),
         )),
     }
+}
+
+/// Pane-scoped link actions: a session selector wins, otherwise the usual
+/// pane selection (defaulting to the active pane of the active tab).
+fn select_pane_entry_for_links(
+    target: &TargetSelector,
+    action: ActionKind,
+    ctx: &mut ModelContext<LocalControlBridge>,
+) -> Result<PaneEntry, ControlError> {
+    if target.session.is_some() {
+        return select_pane_entry_for_session(target, action, ctx);
+    }
+    select_single_pane_entry(target, action, ctx)
+}
+
+/// Tab-scoped link actions: a session selector resolves the session's own
+/// pane; otherwise the target tab's focused pane.
+fn select_pane_entry_for_tab_links(
+    target: &TargetSelector,
+    action: ActionKind,
+    ctx: &mut ModelContext<LocalControlBridge>,
+) -> Result<PaneEntry, ControlError> {
+    if target.session.is_some() {
+        return select_pane_entry_for_session(target, action, ctx);
+    }
+    let tab = select_single_tab_entry(target, action, ctx)?;
+    let focused = tab
+        .pane_group
+        .read(ctx, |pane_group, ctx| pane_group.focused_pane_id(ctx));
+    pane_entries_for_tabs(vec![tab], ctx)
+        .into_iter()
+        .find(|entry| entry.pane_id == focused)
+        .ok_or_else(|| {
+            ControlError::new(
+                ErrorCode::MissingTarget,
+                format!("{} requires a focused pane", action.as_str()),
+            )
+        })
+}
+
+/// Resolves `--session` for the link actions. Accepts the numeric shell
+/// `WARP_SESSION_ID`, the pane identifier reported by `session.list`, or
+/// `active`. Product spec GH16011 invariant 8a.
+fn select_pane_entry_for_session(
+    target: &TargetSelector,
+    action: ActionKind,
+    ctx: &mut ModelContext<LocalControlBridge>,
+) -> Result<PaneEntry, ControlError> {
+    if target.tab.is_some() || target.pane.is_some() {
+        return Err(ControlError::new(
+            ErrorCode::InvalidParams,
+            format!(
+                "{} does not accept tab or pane selectors together with a session selector",
+                action.as_str()
+            ),
+        ));
+    }
+    let Some(session) = target.session.as_ref() else {
+        return Err(ControlError::new(
+            ErrorCode::InvalidParams,
+            format!("{} requires a session selector", action.as_str()),
+        ));
+    };
+
+    match session {
+        SessionTarget::Active => {
+            let active = TargetSelector {
+                window: target.window.clone().or(Some(WindowTarget::Active)),
+                tab: Some(TabTarget::Active),
+                pane: Some(PaneTarget::Active),
+                session: None,
+            };
+            select_single_pane_entry(&active, action, ctx)
+        }
+        SessionTarget::Id { id } => {
+            let search = TargetSelector {
+                window: target.window.clone(),
+                tab: None,
+                pane: None,
+                session: None,
+            };
+            // Search every window: the shell hook's pane may live in a window
+            // that is not the active one.
+            let tabs = select_tab_entries_across_windows(&search, action, ctx)?;
+            let entries = pane_entries_for_tabs(tabs, ctx);
+            let matches: Vec<PaneEntry> = match id.0.trim().parse::<u64>() {
+                Ok(shell_session_id) => {
+                    let wanted = SessionId::from(shell_session_id);
+                    entries
+                        .into_iter()
+                        .filter(|entry| {
+                            entry.pane_group.read(ctx, |pane_group, ctx| {
+                                pane_group
+                                    .terminal_view_from_pane_id(entry.pane_id, ctx)
+                                    .is_some_and(|terminal| {
+                                        terminal.as_ref(ctx).active_block_session_id()
+                                            == Some(wanted)
+                                    })
+                            })
+                        })
+                        .collect()
+                }
+                Err(_) => entries
+                    .into_iter()
+                    .filter(|entry| entry.pane_id.to_string() == id.0)
+                    .collect(),
+            };
+            match matches.as_slice() {
+                [entry] => Ok(entry.clone()),
+                [] => Err(ControlError::new(
+                    ErrorCode::MissingTarget,
+                    format!("{} found no pane for session {}", action.as_str(), id.0),
+                )),
+                _ => Err(ControlError::new(
+                    ErrorCode::AmbiguousTarget,
+                    format!(
+                        "{} resolved multiple panes for session {}",
+                        action.as_str(),
+                        id.0
+                    ),
+                )),
+            }
+        }
+    }
+}
+
+fn link_set_params(action: &::local_control::Action) -> Result<PaneLink, ControlError> {
+    let LinkSetParams { label, url } = action.params_as()?;
+    PaneLink::validate(&label, &url).map_err(|err| link_error(action.kind, err))
+}
+
+fn link_remove_params(action: &::local_control::Action) -> Result<String, ControlError> {
+    let LinkRemoveParams { label } = action.params_as()?;
+    if label.trim().is_empty() {
+        return Err(link_error(action.kind, PaneLinkError::EmptyLabel));
+    }
+    Ok(label)
+}
+
+fn link_error(action: ActionKind, err: PaneLinkError) -> ControlError {
+    ControlError::new(
+        ErrorCode::InvalidParams,
+        format!("{}: {err}", action.as_str()),
+    )
+}
+
+fn mutate_pane_links(
+    instance_id: &Option<InstanceId>,
+    action: ActionKind,
+    entry: &PaneEntry,
+    mutation: LinksMutation,
+    ctx: &mut ModelContext<LocalControlBridge>,
+) -> Result<serde_json::Value, ControlError> {
+    let links = entry.pane_group.update(ctx, |pane_group, ctx| {
+        let Some(pane) = pane_group.pane_by_id(entry.pane_id) else {
+            return Err(ControlError::new(
+                ErrorCode::StaleTarget,
+                "pane links mutation cannot resolve the requested pane",
+            ));
+        };
+        let configuration = pane.pane_configuration();
+        configuration
+            .update(ctx, |configuration, ctx| match mutation {
+                LinksMutation::Set(link) => configuration.upsert_custom_link(link, ctx),
+                LinksMutation::Remove(label) => configuration.remove_custom_link(&label, ctx),
+                LinksMutation::Clear => {
+                    configuration.clear_custom_links(ctx);
+                    Ok(())
+                }
+            })
+            .map_err(|err| link_error(action, err))?;
+        ctx.emit(crate::pane_group::Event::AppStateChanged);
+        Ok(configuration.as_ref(ctx).custom_links().to_vec())
+    })?;
+    let mut value = pane_mutation_result(instance_id, action, entry.pane_id, entry.tab_id.clone());
+    value["links"] = json!(links);
+    Ok(value)
 }
 
 fn select_single_tab_entry_for_pane(

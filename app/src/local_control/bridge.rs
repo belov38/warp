@@ -155,6 +155,36 @@ impl LocalControlBridge {
             ActionKind::PaneResetName => {
                 metadata_config::pane_reset_name(&self.instance_id, &request.target, ctx)
             }
+            ActionKind::TabLinksSet => metadata_config::tab_links_set(
+                &self.instance_id,
+                &request.target,
+                &request.action,
+                ctx,
+            ),
+            ActionKind::TabLinksRemove => metadata_config::tab_links_remove(
+                &self.instance_id,
+                &request.target,
+                &request.action,
+                ctx,
+            ),
+            ActionKind::TabLinksClear => {
+                metadata_config::tab_links_clear(&self.instance_id, &request.target, ctx)
+            }
+            ActionKind::PaneLinksSet => metadata_config::pane_links_set(
+                &self.instance_id,
+                &request.target,
+                &request.action,
+                ctx,
+            ),
+            ActionKind::PaneLinksRemove => metadata_config::pane_links_remove(
+                &self.instance_id,
+                &request.target,
+                &request.action,
+                ctx,
+            ),
+            ActionKind::PaneLinksClear => {
+                metadata_config::pane_links_clear(&self.instance_id, &request.target, ctx)
+            }
             ActionKind::SessionList => metadata::session_list(&request.target, ctx),
             ActionKind::SessionInspect => metadata::session_inspect(&request.target, ctx),
             ActionKind::ThemeList => settings_surfaces::theme_list(ctx),
