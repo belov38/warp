@@ -302,6 +302,10 @@ pub enum TabCommand {
     /// Set or clear a tab color.
     #[command(subcommand)]
     Color(TabColorCommand),
+
+    /// Set, remove, or clear link chips on the tab's focused pane.
+    #[command(subcommand)]
+    Links(LinksCommand),
 }
 
 /// Commands that control tab colors.
@@ -311,6 +315,19 @@ pub enum TabColorCommand {
     Set(ColorSetArgs),
 
     /// Clear a tab color.
+    Clear(TargetArgs),
+}
+
+/// Commands that manage custom link chips on vertical tab cards.
+#[derive(Debug, Clone, Subcommand)]
+pub enum LinksCommand {
+    /// Add a link chip, or replace the URL of the chip with the same label.
+    Set(LinkSetArgs),
+
+    /// Remove the link chip with the given label.
+    Remove(LinkRemoveArgs),
+
+    /// Remove all link chips.
     Clear(TargetArgs),
 }
 
@@ -349,6 +366,10 @@ pub enum PaneCommand {
 
     /// Reset a pane name.
     ResetName(TargetArgs),
+
+    /// Set, remove, or clear link chips on a pane.
+    #[command(subcommand)]
+    Links(LinksCommand),
 }
 
 /// Commands that inspect local Warp sessions.
@@ -744,6 +765,30 @@ pub struct ColorSetArgs {
     pub target: TargetArgs,
 
     pub color: String,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct LinkSetArgs {
+    #[command(flatten)]
+    pub target: TargetArgs,
+
+    /// Chip text, unique per pane (1-64 characters).
+    #[arg(long)]
+    pub label: String,
+
+    /// http(s) URL opened when the chip is clicked.
+    #[arg(long)]
+    pub url: String,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct LinkRemoveArgs {
+    #[command(flatten)]
+    pub target: TargetArgs,
+
+    /// Label of the chip to remove.
+    #[arg(long)]
+    pub label: String,
 }
 
 #[derive(Debug, Clone, Args)]

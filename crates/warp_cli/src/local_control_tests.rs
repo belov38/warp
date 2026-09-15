@@ -284,6 +284,54 @@ fn structured_error_output_uses_stable_error_code() {
 }
 
 #[test]
+fn tab_links_set_parses_label_url_and_session() {
+    let args = ControlArgs::try_parse_from([
+        "warpctrl",
+        "tab",
+        "links",
+        "set",
+        "--label",
+        "DELI-1878",
+        "--url",
+        "https://linear.app/x",
+        "--session",
+        "12345",
+    ])
+    .expect("tab links set parses");
+    let ControlCommand::Tab(TabCommand::Links(LinksCommand::Set(args))) = args.command else {
+        panic!("expected tab links set");
+    };
+    assert_eq!(args.label, "DELI-1878");
+    assert_eq!(args.url, "https://linear.app/x");
+    assert_eq!(args.target.session.as_deref(), Some("12345"));
+}
+
+#[test]
+fn pane_links_remove_requires_label() {
+    assert!(ControlArgs::try_parse_from(["warpctrl", "pane", "links", "remove"]).is_err());
+
+    let args =
+        ControlArgs::try_parse_from(["warpctrl", "pane", "links", "remove", "--label", "x"])
+            .expect("pane links remove parses");
+    assert!(matches!(
+        args.command,
+        ControlCommand::Pane(PaneCommand::Links(LinksCommand::Remove(_)))
+    ));
+}
+
+#[test]
+fn links_set_requires_both_flags() {
+    assert!(ControlArgs::try_parse_from([
+        "warpctrl", "tab", "links", "set", "--label", "x"
+    ])
+    .is_err());
+    assert!(ControlArgs::try_parse_from([
+        "warpctrl", "tab", "links", "set", "--url", "https://x"
+    ])
+    .is_err());
+}
+
+#[test]
 fn renders_human_readable_tab_create_output() {
     let rendered = render_human_readable_for_test(
         local_control::protocol::ActionKind::TabCreate,
@@ -362,6 +410,20 @@ fn retained_action_examples() -> Vec<(ActionKind, Vec<&'static str>)> {
             ActionKind::TabColorClear,
             vec!["warpctrl", "tab", "color", "clear"],
         ),
+        (
+            ActionKind::TabLinksSet,
+            vec![
+                "warpctrl", "tab", "links", "set", "--label", "docs", "--url", "https://x",
+            ],
+        ),
+        (
+            ActionKind::TabLinksRemove,
+            vec!["warpctrl", "tab", "links", "remove", "--label", "docs"],
+        ),
+        (
+            ActionKind::TabLinksClear,
+            vec!["warpctrl", "tab", "links", "clear"],
+        ),
         (ActionKind::PaneList, vec!["warpctrl", "pane", "list"]),
         (ActionKind::PaneInspect, vec!["warpctrl", "pane", "inspect"]),
         (
@@ -401,6 +463,20 @@ fn retained_action_examples() -> Vec<(ActionKind, Vec<&'static str>)> {
         (
             ActionKind::PaneResetName,
             vec!["warpctrl", "pane", "reset-name"],
+        ),
+        (
+            ActionKind::PaneLinksSet,
+            vec![
+                "warpctrl", "pane", "links", "set", "--label", "docs", "--url", "https://x",
+            ],
+        ),
+        (
+            ActionKind::PaneLinksRemove,
+            vec!["warpctrl", "pane", "links", "remove", "--label", "docs"],
+        ),
+        (
+            ActionKind::PaneLinksClear,
+            vec!["warpctrl", "pane", "links", "clear"],
         ),
         (ActionKind::SessionList, vec!["warpctrl", "session", "list"]),
         (
@@ -624,6 +700,11 @@ fn parsed_action_kind(command: &ControlCommand) -> Option<ActionKind> {
                 TabColorCommand::Set(_) => Some(ActionKind::TabColorSet),
                 TabColorCommand::Clear(_) => Some(ActionKind::TabColorClear),
             },
+            TabCommand::Links(command) => match command {
+                LinksCommand::Set(_) => Some(ActionKind::TabLinksSet),
+                LinksCommand::Remove(_) => Some(ActionKind::TabLinksRemove),
+                LinksCommand::Clear(_) => Some(ActionKind::TabLinksClear),
+            },
         },
         ControlCommand::Pane(command) => match command {
             PaneCommand::List(_) => Some(ActionKind::PaneList),
@@ -637,6 +718,11 @@ fn parsed_action_kind(command: &ControlCommand) -> Option<ActionKind> {
             PaneCommand::Close(_) => Some(ActionKind::PaneClose),
             PaneCommand::Rename(_) => Some(ActionKind::PaneRename),
             PaneCommand::ResetName(_) => Some(ActionKind::PaneResetName),
+            PaneCommand::Links(command) => match command {
+                LinksCommand::Set(_) => Some(ActionKind::PaneLinksSet),
+                LinksCommand::Remove(_) => Some(ActionKind::PaneLinksRemove),
+                LinksCommand::Clear(_) => Some(ActionKind::PaneLinksClear),
+            },
         },
         ControlCommand::Session(command) => match command {
             SessionCommand::List(_) => Some(ActionKind::SessionList),

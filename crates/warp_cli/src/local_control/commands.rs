@@ -3,9 +3,9 @@ use local_control::discovery::InstanceRecord;
 use local_control::protocol::{
     Action, ActionKind, ActionNameParams, BindingNameParams, BooleanValueParams, ColorValueParams,
     ControlError, DirectionParams, EmptyParams, ErrorCode, FileOpenParams, KeyParams,
-    KeyValueParams, PageQueryParams, QueryParams, RenameParams, RequestEnvelope, ResizeParams,
-    SettingListParams, TabActivateParams, TabActivationMode, TabCloseMode, TabCloseParams,
-    TabCreateParams, TextParams, ThemeNameParams,
+    KeyValueParams, LinkRemoveParams, LinkSetParams, PageQueryParams, QueryParams, RenameParams,
+    RequestEnvelope, ResizeParams, SettingListParams, TabActivateParams, TabActivationMode,
+    TabCloseMode, TabCloseParams, TabCreateParams, TextParams, ThemeNameParams,
 };
 use local_control::selection::select_instance;
 use serde::Serialize;
@@ -16,10 +16,10 @@ use crate::local_control::output::{write_json, write_json_line};
 use crate::local_control::selectors::{instance_selector, target_selector};
 use crate::local_control::{
     ActionCatalogCommand, AppCommand, AppearanceCommand, CapabilityCommand, FileCommand,
-    InputCommand, InstanceCommand, KeybindingCommand, PaneCommand, SessionCommand, SettingCommand,
-    SurfaceCommand, SurfaceOpenCommand, SurfaceOpenToggleCommand, SurfaceQueryCommand,
-    SurfaceSettingsCommand, SurfaceToggleCommand, TabActivateArgs, TabCloseArgs, TabColorCommand,
-    TabCommand, TargetArgs, ThemeCommand, WindowCommand,
+    InputCommand, InstanceCommand, KeybindingCommand, LinksCommand, PaneCommand, SessionCommand,
+    SettingCommand, SurfaceCommand, SurfaceOpenCommand, SurfaceOpenToggleCommand,
+    SurfaceQueryCommand, SurfaceSettingsCommand, SurfaceToggleCommand, TabActivateArgs,
+    TabCloseArgs, TabColorCommand, TabCommand, TargetArgs, ThemeCommand, WindowCommand,
 };
 
 pub(super) fn run_surface_command(
@@ -415,6 +415,13 @@ pub(super) fn run_tab_command(
                 run_action(args, ActionKind::TabColorClear, output_format)
             }
         },
+        TabCommand::Links(command) => run_links_command(
+            command,
+            ActionKind::TabLinksSet,
+            ActionKind::TabLinksRemove,
+            ActionKind::TabLinksClear,
+            output_format,
+        ),
     }
 }
 
@@ -479,6 +486,13 @@ pub(super) fn run_pane_command(
             output_format,
         ),
         PaneCommand::ResetName(args) => run_action(args, ActionKind::PaneResetName, output_format),
+        PaneCommand::Links(command) => run_links_command(
+            command,
+            ActionKind::PaneLinksSet,
+            ActionKind::PaneLinksRemove,
+            ActionKind::PaneLinksClear,
+            output_format,
+        ),
     }
 }
 
@@ -764,6 +778,33 @@ fn run_action(
     output_format: OutputFormat,
 ) -> Result<(), ControlError> {
     run_action_with_params(args, action, EmptyParams {}, output_format)
+}
+
+fn run_links_command(
+    command: LinksCommand,
+    set: ActionKind,
+    remove: ActionKind,
+    clear: ActionKind,
+    output_format: OutputFormat,
+) -> Result<(), ControlError> {
+    match command {
+        LinksCommand::Set(args) => run_action_with_params(
+            args.target,
+            set,
+            LinkSetParams {
+                label: args.label,
+                url: args.url,
+            },
+            output_format,
+        ),
+        LinksCommand::Remove(args) => run_action_with_params(
+            args.target,
+            remove,
+            LinkRemoveParams { label: args.label },
+            output_format,
+        ),
+        LinksCommand::Clear(args) => run_action(args, clear, output_format),
+    }
 }
 
 fn run_action_with_params<T: Serialize>(
