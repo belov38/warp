@@ -86,7 +86,7 @@ The Vertical Tabs card already shows a PR chip, but it only knows about GitHub p
 16. Chips appear in all three Vertical Tabs item modes that show the metadata line:
     - Panes: on each pane's own row.
     - Focused session (Tabs granularity): on the tab's row, showing the focused pane's links.
-    - Summary: on the tab's summary card, each branch line shows the union of the links of the terminal panes on that repository and branch, with duplicates by label removed (first occurrence wins, in pane order). A tab with no branch lines at all but with links on its terminal panes draws one metadata line containing only the link chips. Links on branchless panes are not shown when the tab also has branch lines, and non-terminal panes contribute no links (see Non-goals).
+    - Summary: on the tab's summary card, each branch line shows the union of the links of the terminal panes on that repository and branch, with duplicates by label removed (first occurrence wins, in pane order). A tab with no branch lines at all but with links on its terminal panes draws one metadata line containing only the link chips. Links on branchless panes are not shown when the tab also has branch lines, and non-terminal panes contribute no links (see Non-goals). A branch line displays at most three link chips; any further links in the union remain searchable but are not drawn.
 
 17. The hover details sidecar for a terminal pane shows the pane's link chips in its metadata row, after the diff-stats and PR chips, with the same click behavior. Labels are not truncated in the sidecar.
 

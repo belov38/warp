@@ -413,6 +413,29 @@ fn duplicate_session_ids_are_ambiguous() {
 }
 
 #[test]
+fn tab_links_set_without_session_targets_the_focused_pane_of_a_split_tab() {
+    App::test((), |mut app| async move {
+        initialize_app(&mut app);
+        let workspace = mock_workspace(&mut app);
+        let (first, second) = split_tab_with_sessions(&mut app, &workspace);
+        let bridge = app.add_singleton_model(LocalControlBridge::new);
+        let instance_id = Some(InstanceId("inst_test".to_owned()));
+        let target = window_scoped_target(&app);
+        let action = Action::with_params(
+            ActionKind::TabLinksSet,
+            serde_json::json!({ "label": "f", "url": "https://f/" }),
+        )
+        .unwrap();
+
+        bridge.update(&mut app, |_, ctx| {
+            let result = tab_links_set(&instance_id, &target, &action, ctx).expect("tab set");
+            assert_eq!(result["pane_id"], second.to_string());
+            assert_ne!(result["pane_id"], first.to_string());
+        });
+    });
+}
+
+#[test]
 fn tab_links_remove_and_clear_target_the_focused_pane() {
     App::test((), |mut app| async move {
         initialize_app(&mut app);

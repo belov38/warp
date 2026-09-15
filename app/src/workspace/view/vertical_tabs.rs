@@ -51,7 +51,7 @@ use crate::context_chips::github_pr_display_text_from_url;
 use crate::drive::DriveObjectType;
 use crate::drive::cloud_object_styling::warp_drive_icon_color;
 use crate::editor::EditorView;
-use crate::pane_group::pane::{IPaneType, PaneLink};
+use crate::pane_group::pane::{IPaneType, MAX_PANE_LINKS, PaneLink};
 use crate::pane_group::{
     CodePane, NotebookPane, PaneGroup, PaneId, TabBarHoverIndex, TerminalPane, WorkflowPane,
 };
@@ -4955,6 +4955,7 @@ fn render_summary_tab_item(
     // Link chip hover handles are handed out by a running counter rather than a
     // fixed per-line stride, so a branch line whose union exceeds one pane's link
     // cap cannot reach into the next line's handles.
+    let show_links = *TabSettings::as_ref(app).vertical_tabs_show_links.value();
     let mut next_link_handle = 0usize;
     for (idx, branch_entry) in summary
         .branch_entries
@@ -4969,13 +4970,13 @@ fn render_summary_tab_item(
                 &badge_mouse_states,
                 next_link_handle,
                 pr_chip_entrypoint,
+                show_links,
                 appearance,
-                app,
             ))
             .with_margin_top(REGION_GAP)
             .finish(),
         );
-        next_link_handle += branch_entry.links.len();
+        next_link_handle += branch_entry.links.len().min(MAX_PANE_LINKS);
     }
 
     let hidden_branch_count =
@@ -4993,10 +4994,7 @@ fn render_summary_tab_item(
     }
 
     // A tab with no branch lines still shows its panes' links, on a line of its own.
-    if *TabSettings::as_ref(app).vertical_tabs_show_links.value()
-        && summary.branch_entries.is_empty()
-        && !summary.unattached_links.is_empty()
-    {
+    if show_links && summary.branch_entries.is_empty() && !summary.unattached_links.is_empty() {
         text_col.add_child(
             Container::new(render_summary_links_line(
                 &summary.unattached_links,
@@ -5301,14 +5299,38 @@ fn summary_pane_kind_icon(
     }
 }
 
+/// Appends up to `MAX_PANE_LINKS` link chips to `row`, returning true when any
+/// chip was added. Callers decide whether the Links setting allows chips.
+fn push_link_badges(
+    row: &mut Flex,
+    links: &[PaneLink],
+    mouse_states: &PaneRowBadgeMouseStates,
+    first_handle: usize,
+    entrypoint: VerticalTabsChipEntrypoint,
+    appearance: &Appearance,
+) -> bool {
+    let mut added = false;
+    for (index, link) in links.iter().take(MAX_PANE_LINKS).enumerate() {
+        row.add_child(render_terminal_link_badge(
+            link,
+            mouse_states.link_mouse_state(first_handle + index),
+            true,
+            entrypoint,
+            appearance,
+        ));
+        added = true;
+    }
+    added
+}
+
 fn render_summary_branch_line(
     entry: &VerticalTabsSummaryBranchEntry,
     pr_badge_mouse_state: Option<MouseStateHandle>,
     link_mouse_states: &PaneRowBadgeMouseStates,
     first_link_handle: usize,
     pr_chip_entrypoint: VerticalTabsChipEntrypoint,
+    show_links: bool,
     appearance: &Appearance,
-    app: &AppContext,
 ) -> Box<dyn Element> {
     let theme = appearance.theme();
     let sub_text_color = theme.sub_text_color(theme.background());
@@ -5362,17 +5384,17 @@ fn render_summary_branch_line(
             }
         }
     }
-    if *TabSettings::as_ref(app).vertical_tabs_show_links.value() {
-        for (link_index, link) in entry.links.iter().enumerate() {
-            right_badges.add_child(render_terminal_link_badge(
-                link,
-                link_mouse_states.link_mouse_state(first_link_handle + link_index),
-                true,
-                pr_chip_entrypoint,
-                appearance,
-            ));
-            has_right_badges = true;
-        }
+    if show_links
+        && push_link_badges(
+            &mut right_badges,
+            &entry.links,
+            link_mouse_states,
+            first_link_handle,
+            pr_chip_entrypoint,
+            appearance,
+        )
+    {
+        has_right_badges = true;
     }
     if has_right_badges {
         row.add_child(
@@ -5399,15 +5421,14 @@ fn render_summary_links_line(
     let mut right_badges = Flex::row()
         .with_cross_axis_alignment(CrossAxisAlignment::Center)
         .with_spacing(4.);
-    for (link_index, link) in links.iter().enumerate() {
-        right_badges.add_child(render_terminal_link_badge(
-            link,
-            link_mouse_states.link_mouse_state(first_link_handle + link_index),
-            true,
-            entrypoint,
-            appearance,
-        ));
-    }
+    push_link_badges(
+        &mut right_badges,
+        links,
+        link_mouse_states,
+        first_link_handle,
+        entrypoint,
+        appearance,
+    );
     let row = Flex::row()
         .with_main_axis_size(MainAxisSize::Max)
         .with_main_axis_alignment(MainAxisAlignment::End)
@@ -5616,17 +5637,17 @@ fn render_terminal_right_badges(
     }
 
     let show_links = *TabSettings::as_ref(app).vertical_tabs_show_links.value();
-    if show_links {
-        for (index, link) in custom_links.iter().enumerate() {
-            right_badges.add_child(render_terminal_link_badge(
-                link,
-                badge_mouse_states.link_mouse_state(index),
-                true,
-                entrypoint,
-                appearance,
-            ));
-            has_badges = true;
-        }
+    if show_links
+        && push_link_badges(
+            &mut right_badges,
+            custom_links,
+            badge_mouse_states,
+            0,
+            entrypoint,
+            appearance,
+        )
+    {
+        has_badges = true;
     }
 
     has_badges.then(|| right_badges.finish())

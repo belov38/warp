@@ -101,7 +101,8 @@ pub enum VerticalTabsTelemetryEvent {
     PrChipClicked {
         entrypoint: VerticalTabsChipEntrypoint,
     },
-    /// The user clicked a custom link chip on a vertical tabs row, the Summary card, or the detail sidecar.
+    /// The user clicked a custom link chip on a vertical tabs row (Pane or Tab entrypoint;
+    /// Summary cards report Tab) or the detail sidecar.
     LinkChipClicked {
         entrypoint: VerticalTabsChipEntrypoint,
     },
