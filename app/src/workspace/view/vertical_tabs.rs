@@ -1169,7 +1169,9 @@ fn summary_search_text_fragments(
         if let Some(diff_stats) = &entry.diff_stats {
             fragments.push(vtab_diff_stats_text(diff_stats));
         }
+        fragments.extend(entry.links.iter().map(|link| link.label.clone()));
     }
+    fragments.extend(summary.unattached_links.iter().map(|link| link.label.clone()));
     fragments
 }
 
@@ -4040,6 +4042,7 @@ impl<'a> PaneProps<'a> {
             TypedPane::Terminal(terminal_pane) => terminal_pane_search_text_fragments(
                 terminal_pane,
                 self.display_title_override.as_deref(),
+                self.custom_links.iter().map(|link| link.label.clone()).collect(),
                 app,
             ),
             TypedPane::Code(_)
@@ -4129,6 +4132,7 @@ fn non_terminal_search_text_fragments(title: &str, subtitle: &str) -> Vec<String
 fn terminal_pane_search_text_fragments(
     terminal_pane: &TerminalPane,
     display_title_override: Option<&str>,
+    link_labels: Vec<String>,
     app: &AppContext,
 ) -> Vec<String> {
     let terminal_view = terminal_pane.terminal_view(app);
@@ -4167,6 +4171,7 @@ fn terminal_pane_search_text_fragments(
         terminal_kind_badge_label(agent_text.is_oz_agent, agent_text.cli_agent),
         pull_request_label,
         terminal_view.current_diff_line_changes(app),
+        link_labels,
     )
 }
 
@@ -4177,6 +4182,7 @@ fn terminal_search_text_fragments(
     kind_badge_label: String,
     pull_request_label: Option<String>,
     diff_stats: Option<GitLineChanges>,
+    link_labels: Vec<String>,
 ) -> Vec<String> {
     let mut fragments = vec![primary_text, working_directory, kind_badge_label];
     if let Some(git_branch) = git_branch.filter(|branch| !branch.trim().is_empty()) {
@@ -4188,6 +4194,7 @@ fn terminal_search_text_fragments(
     if let Some(diff_stats) = diff_stats {
         fragments.push(vtab_diff_stats_text(&diff_stats));
     }
+    fragments.extend(link_labels.into_iter().filter(|label| !label.trim().is_empty()));
     fragments
 }
 
@@ -4983,6 +4990,7 @@ fn render_summary_tab_item(
                 &summary.unattached_links,
                 &badge_mouse_states,
                 next_link_handle,
+                pr_chip_entrypoint,
                 appearance,
             ))
             .with_margin_top(REGION_GAP)
@@ -5348,6 +5356,7 @@ fn render_summary_branch_line(
                 link,
                 link_mouse_states.link_mouse_state(first_link_handle + link_index),
                 true,
+                pr_chip_entrypoint,
                 appearance,
             ));
             has_right_badges = true;
@@ -5372,6 +5381,7 @@ fn render_summary_links_line(
     links: &[PaneLink],
     link_mouse_states: &PaneRowBadgeMouseStates,
     first_link_handle: usize,
+    entrypoint: VerticalTabsChipEntrypoint,
     appearance: &Appearance,
 ) -> Box<dyn Element> {
     let mut right_badges = Flex::row()
@@ -5382,6 +5392,7 @@ fn render_summary_links_line(
             link,
             link_mouse_states.link_mouse_state(first_link_handle + link_index),
             true,
+            entrypoint,
             appearance,
         ));
     }
@@ -5599,6 +5610,7 @@ fn render_terminal_right_badges(
                 link,
                 badge_mouse_states.link_mouse_state(index),
                 true,
+                entrypoint,
                 appearance,
             ));
             has_badges = true;
@@ -5772,6 +5784,7 @@ fn render_terminal_link_badge(
     link: &PaneLink,
     mouse_state: MouseStateHandle,
     truncate: bool,
+    entrypoint: VerticalTabsChipEntrypoint,
     appearance: &Appearance,
 ) -> Box<dyn Element> {
     let theme = appearance.theme();
@@ -5793,7 +5806,11 @@ fn render_terminal_link_badge(
             bg,
         )
     })
-    .on_click(move |ctx, _app, _| {
+    .on_click(move |ctx, app, _| {
+        send_telemetry_from_app_ctx!(
+            VerticalTabsTelemetryEvent::LinkChipClicked { entrypoint },
+            app
+        );
         ctx.dispatch_typed_action(WorkspaceAction::OpenLink(url.clone()));
     })
     .with_cursor(Cursor::PointingHand)
@@ -7111,6 +7128,7 @@ fn render_terminal_detail_section(
                 link,
                 props.badge_mouse_states.link_mouse_state(index),
                 false,
+                VerticalTabsChipEntrypoint::DetailsSidecar,
                 appearance,
             ));
             has_right_badges = true;

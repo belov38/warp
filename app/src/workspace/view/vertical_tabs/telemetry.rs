@@ -101,6 +101,10 @@ pub enum VerticalTabsTelemetryEvent {
     PrChipClicked {
         entrypoint: VerticalTabsChipEntrypoint,
     },
+    /// The user clicked a custom link chip on a vertical tabs row, the Summary card, or the detail sidecar.
+    LinkChipClicked {
+        entrypoint: VerticalTabsChipEntrypoint,
+    },
 }
 
 impl TelemetryEvent for VerticalTabsTelemetryEvent {
@@ -118,6 +122,9 @@ impl TelemetryEvent for VerticalTabsTelemetryEvent {
                 "entrypoint": entrypoint.serialized(),
             })),
             Self::PrChipClicked { entrypoint } => Some(json!({
+                "entrypoint": entrypoint.serialized(),
+            })),
+            Self::LinkChipClicked { entrypoint } => Some(json!({
                 "entrypoint": entrypoint.serialized(),
             })),
         }
@@ -146,6 +153,7 @@ impl TelemetryEventDesc for VerticalTabsTelemetryEventDiscriminants {
             Self::DisplayOptionChanged => "VerticalTabs.DisplayOptionChanged",
             Self::DiffStatsChipClicked => "VerticalTabs.DiffStatsChipClicked",
             Self::PrChipClicked => "VerticalTabs.PrChipClicked",
+            Self::LinkChipClicked => "VerticalTabs.LinkChipClicked",
         }
     }
 
@@ -159,6 +167,9 @@ impl TelemetryEventDesc for VerticalTabsTelemetryEventDiscriminants {
             }
             Self::PrChipClicked => {
                 "User clicked a GitHub PR chip in the vertical tabs panel or detail sidecar"
+            }
+            Self::LinkChipClicked => {
+                "User clicked a custom link chip in the vertical tabs panel or detail sidecar"
             }
         }
     }

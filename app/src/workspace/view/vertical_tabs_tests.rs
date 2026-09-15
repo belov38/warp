@@ -828,6 +828,7 @@ fn terminal_search_fragments_include_rendered_terminal_badges() {
             lines_added: 2,
             lines_removed: 3,
         }),
+        vec![],
     );
 
     assert!(search_fragments_contain_query(&fragments, "claude"));
@@ -838,6 +839,21 @@ fn terminal_search_fragments_include_rendered_terminal_badges() {
     assert!(search_fragments_contain_query(&fragments, "#12345"));
     assert!(search_fragments_contain_query(&fragments, "+2"));
     assert!(search_fragments_contain_query(&fragments, "-3"));
+}
+
+#[test]
+fn terminal_search_fragments_include_link_labels() {
+    let fragments = terminal_search_text_fragments(
+        "ls".to_owned(),
+        "/repo".to_owned(),
+        Some("main".to_owned()),
+        "Terminal".to_owned(),
+        None,
+        None,
+        vec!["DELI-1878".to_owned(), "PR 1761".to_owned()],
+    );
+    assert!(fragments.contains(&"DELI-1878".to_owned()));
+    assert!(fragments.contains(&"PR 1761".to_owned()));
 }
 
 #[test]
@@ -1251,6 +1267,27 @@ fn summary_search_fragments_include_hidden_overflow_values() {
     assert!(search_fragments_contain_query(&fragments, "#789"));
     assert!(search_fragments_contain_query(&fragments, "+2"));
     assert!(search_fragments_contain_query(&fragments, "-3"));
+}
+
+#[test]
+fn summary_search_fragments_include_branch_and_unattached_link_labels() {
+    let summary = VerticalTabsSummaryData {
+        primary_labels: vec![],
+        working_directories: vec![],
+        branch_entries: vec![VerticalTabsSummaryBranchEntry {
+            repo_path: PathBuf::from("/repo"),
+            branch_name: "main".to_owned(),
+            diff_stats: None,
+            pull_request_label: None,
+            pull_request_url: None,
+            links: vec![link("on-branch")],
+        }],
+        has_unread_activity: false,
+        unattached_links: vec![link("loose")],
+    };
+    let fragments = summary_search_text_fragments(&summary, None);
+    assert!(fragments.contains(&"on-branch".to_owned()));
+    assert!(fragments.contains(&"loose".to_owned()));
 }
 
 #[test]
